@@ -1,0 +1,170 @@
+import uuid
+import re
+import requests
+import json
+import pandas as pd
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+api_key = os.getenv('NBB_CBSO_sub_key')
+
+
+class CompanyData:
+    def __init__(self, company_number: str):
+        """
+        Initialize with a list of company numbers.
+        """
+        self.company_number = self._clean_input(company_number)
+# Refactoring OK: Raises ValueError i.c.o. wrong input length-wise
+    def _clean_input(self, user_input: str) -> str:
+        '''
+        Function removes non-numeric characters. 
+        Returns only-numeric string or raises a ValueError. 
+        Important: it checks the grammatically correct input, not whether the 
+        company ID is in the databank.
+        '''
+        user_input = user_input.strip()
+        cleaned_input = re.sub(r"\D", '', user_input)
+        if len(cleaned_input) in [10, 11]:
+            return cleaned_input
+        else:
+            raise ValueError(
+                "Wrong input - Length mismatch (or turn on JavaScript).")
+# Refactoring OK        
+    def _reference_url_creation(self):
+        """
+        Function generates URL to receive the reference list from NBB.
+        Default database is authentic. Other options are 'extracts' and 
+        'improved' but the function is not yet adjusted to handle this.
+        """
+        environment = "https://ws.cbso.nbb.be/"
+        database = "authentic/"
+        action = "legalEntity/"
+        company_id = self.company_number + "/"
+        type_action = "references"
+
+        url = environment + database + action + company_id + type_action
+        return url
+# Refactoring OK: Prints HTTP-error or returns it to the tool
+    def _api_call(self, url: str, accept_form: str) -> bytes:
+        """
+        Function makes API call for references list. 
+        Return bytes object or HTTP Error Code.
+        """
+        uuid_code = str(uuid.uuid4())
+        hdr = {
+            'X-Request-Id': uuid_code,
+            'NBB-CBSO-Subscription-Key': api_key,
+            'Accept': accept_form,
+            'User-Agent': 'PostmanRuntime/7.37.3'
+        }
+
+        try:
+            response = requests.get(url, headers=hdr)
+            response.raise_for_status()
+            print(response.status_code)
+            api_answer = response.content
+            return api_answer
+        except requests.exceptions.HTTPError as http_err:
+            return http_err
+        except requests.exceptions.RequestException as req_err:
+            print(f"This is a Request Error: {http_err}")
+            return req_err
+        except Exception as err:
+            print(f"This is a regular Error: {http_err}")
+            return err
+# Refactoring OK    
+    def _handle_df_of_references(self, df_of_references):
+        """
+        Function filters the DataFrame of References.
+        - Selects only 'Jaarrekening' and not 'Geconsolideerde Jaarrekening'. 
+        - Compares bookyears and selects the latest submission, in case of 
+          a correction.
+        """
+        df_of_references.sort_values(
+            ['ExerciseDates.endDate', 'DepositDate'],
+            ignore_index=True, 
+            inplace=True)
+
+        df_of_references.dropna(
+            subset=['AccountingDataURL'],
+            axis=0,
+            inplace=True)
+
+        df_of_references.drop_duplicates(
+            subset=['ExerciseDates.startDate', 'ExerciseDates.endDate'],
+            keep='last',
+            ignore_index=True,
+            inplace=True)
+
+        return df_of_references
+# Refactoring OK 
+    def fetch_references(self, year_span=1, accept_reference="application/json"):
+        """
+        Function makes an API call for references. 
+        Returns a DataFrame with the references from the NBB for one specific
+        company ID (KBO-nummer). 
+        Default year span is one year (last submission).
+        """
+        api_answer = self._api_call(
+            self._reference_url_creation(), 
+            accept_reference
+            )
+        
+        # In web tool use return the error, otherwise raise the error
+        if isinstance(api_answer, Exception):
+            no_submission = ValueError(
+                "No submission found in NBB database. " +
+                "Please, double check company ID.")
+            print(api_answer)
+            return no_submission
+        
+        df_of_references = pd.json_normalize(json.loads(api_answer))
+        df_of_references = self._handle_df_of_references(df_of_references)
+        df_of_references = df_of_references.tail(year_span)
+        return df_of_references
+# Refactoring OK    
+    def fetch_data(self, 
+                   reference_variable, 
+                   accept_submission='application/x.jsonxbrl') -> dict:
+        """
+        Function makes an API call for data. Add variable containing the 
+        reference list.
+        Returns the data in a dictionary. The amount of keys in the dictionary 
+        is equal to the amount of years requested in the references.
+        The 
+        """
+        data_dictionary = {}
+        reference_URLs = reference_variable['AccountingDataURL']
+        for data_url in reference_URLs:
+            try:
+                data = self._api_call(
+                    url=data_url, 
+                    accept_form=accept_submission
+                    )
+                data_dict = json.loads(data)
+                reference_number = data_dict['ReferenceNumber']
+                data_dictionary[reference_number]=data_dict
+            except Exception as e:
+                e = 'Not a JSONXBRL'
+                print(e)
+        return data_dictionary
+    
+    def fetch_quantative(self, data_dictionary):
+        """
+        Function extracts quantative data with all financial data of all 
+        submissions. Returns a Dataframe.
+        - Index is NBB code / accounting code
+        - includes current (N) and last year (NM1) submission.
+        """
+        rubrics_dict = {}
+        for key, value in data_dictionary.items():
+            df = pd.json_normalize(
+                value, 
+                record_path='Rubrics', 
+                meta='ReferenceNumber')
+            df.set_index('Code', inplace=True)
+            rubrics_dict[key]=df
+        return rubrics_dict
