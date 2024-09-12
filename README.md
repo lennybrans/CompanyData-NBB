@@ -1,6 +1,6 @@
 ## What is it?
 
-**nbb_api** is designed as a class/module to make an API call to the webservices of the National Bank of Belgium and to retrieve financial statements from Belgian companies and all others who are obligated to submit their results. As input it needs a KBO-number.
+**CompanyData-NBB** is designed as a class/module to make an API call to the webservices of the National Bank of Belgium and to retrieve financial statements from Belgian companies and all others who are obligated to submit their results. As input it needs a KBO-number.
 
 The script can only retrieve information from those companies that are subjected to make their financial information publically available and is, for the moment, limited to handle JSONXBRL files only. Later it should be able to handle the XBRL information that can be returned from the NBB. Though XBRL data does not seem to be as easy to convert in a workable way (let me know if you do).
 De facto this means only the last two tax returns can be retrieved (I believe starting 2022) but up to three years of data (since a tax return depicts data of the current (N) and last year (NM1)).
