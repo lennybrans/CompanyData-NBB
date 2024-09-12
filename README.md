@@ -11,8 +11,7 @@ The key is hidden as a `.env` file under the variable `NBB_CBSO_sub_key`.
 [nbb-link]: https://www.nbb.be/en/central-balance-sheet-office/consultation-data/webservices
 
 
-**Addition**
-An upcoming extension will be to work-in data from the 'Kruispuntdatabank voor Ondernemingen' and look for similar companies.
+**Addition**: An upcoming extension will be to work-in data from the 'Kruispuntdatabank voor Ondernemingen' and look for similar companies.
 Though additional data needs to be downloaded [here][kbo-link].
 
 [kbo-link]: https://economie.fgov.be/nl/themas/ondernemingen/kruispuntbank-van/diensten-voor-iedereen/hergebruik-van-publieke/kruispuntbank-van-0
@@ -33,9 +32,12 @@ In the data stage, and still under construction, we will pull apart the returned
 Here on Github
 
 ## License
-Currently none because it is not clear to me how to license a product I want to make publicly available. But by all means I want this script to remain open source and any attempt to commercialise this or make profit from it, will be treated as "unwanted".
+Currently none because it is not clear to me how to license a product I want to make publicly available. But by all means, I want this script to remain open source and any attempt to commercialise this or make profit from it, will be regarded as "unwanted and not allowed".
 
-All intentions are to license this as open source.
+All intentions are to license this as open source, if needed.
 
 ## Discussion and Development
 It still needs some refactoring in terms of general usage, as it is derived from a specific project.
+Upcoming:
+- Various functions for each category on a financial statement, i.e. Address, Rubrics, Shareholders etc.
+- Common metrics, such as: Net Working Capital, Cash Conversion Cycle etc.
