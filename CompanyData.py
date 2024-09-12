@@ -17,12 +17,13 @@ class CompanyData:
         Initialize with a list of company numbers.
         """
         self.company_number = self._clean_input(company_number)
+
 # Refactoring OK: Raises ValueError i.c.o. wrong input length-wise
     def _clean_input(self, user_input: str) -> str:
         '''
         Function removes non-numeric characters. 
         Returns only-numeric string or raises a ValueError. 
-        Important: it checks the grammatically correct input, not whether the 
+        Important: it checks the numeric correct input, not whether the 
         company ID is in the databank.
         '''
         user_input = user_input.strip()
@@ -31,7 +32,8 @@ class CompanyData:
             return cleaned_input
         else:
             raise ValueError(
-                "Wrong input - Length mismatch (or turn on JavaScript).")
+                "Wrong input - Length mismatch")
+        
 # Refactoring OK        
     def _reference_url_creation(self):
         """
@@ -47,6 +49,7 @@ class CompanyData:
 
         url = environment + database + action + company_id + type_action
         return url
+    
 # Refactoring OK: Prints HTTP-error or returns it to the tool
     def _api_call(self, url: str, accept_form: str) -> bytes:
         """
@@ -75,7 +78,10 @@ class CompanyData:
         except Exception as err:
             print(f"This is a regular Error: {http_err}")
             return err
-# Refactoring OK    
+        
+# Needs an update: 'Geconsolideerde Jaarrekening' is not yet available via API
+# but might be in the future. Unfortunately, the 'ModelType' is not a unique 
+# indicator across companies/industries to select the 'Jaarrekening'.
     def _handle_df_of_references(self, df_of_references):
         """
         Function filters the DataFrame of References.
@@ -100,8 +106,11 @@ class CompanyData:
             inplace=True)
 
         return df_of_references
+    
 # Refactoring OK 
-    def fetch_references(self, year_span=1, accept_reference="application/json"):
+    def fetch_references(self, 
+                         year_span=1, 
+                         accept_reference="application/json"):
         """
         Function makes an API call for references. 
         Returns a DataFrame with the references from the NBB for one specific
@@ -125,16 +134,16 @@ class CompanyData:
         df_of_references = self._handle_df_of_references(df_of_references)
         df_of_references = df_of_references.tail(year_span)
         return df_of_references
+    
 # Refactoring OK    
     def fetch_data(self, 
                    reference_variable, 
                    accept_submission='application/x.jsonxbrl') -> dict:
         """
         Function makes an API call for data. Add variable containing the 
-        reference list.
+        reference list or vector it.
         Returns the data in a dictionary. The amount of keys in the dictionary 
         is equal to the amount of years requested in the references.
-        The 
         """
         data_dictionary = {}
         reference_URLs = reference_variable['AccountingDataURL']
@@ -151,7 +160,8 @@ class CompanyData:
                 e = 'Not a JSONXBRL'
                 print(e)
         return data_dictionary
-    
+
+# Under construction    
     def fetch_quantative(self, data_dictionary):
         """
         Function extracts quantative data with all financial data of all 
