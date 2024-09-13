@@ -73,10 +73,10 @@ class CompanyData:
         except requests.exceptions.HTTPError as http_err:
             return http_err
         except requests.exceptions.RequestException as req_err:
-            print(f"This is a Request Error: {http_err}")
+            print(f"This is a Request Error: {req_err}")
             return req_err
         except Exception as err:
-            print(f"This is a regular Error: {http_err}")
+            print(f"This is a regular Error: {err}")
             return err
         
 # Needs an update: 'Geconsolideerde Jaarrekening' is not yet available via API
