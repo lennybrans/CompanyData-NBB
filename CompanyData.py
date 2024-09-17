@@ -7,7 +7,7 @@ import pandas as pd
 import os
 import numpy as np
 
-import dictionaries as dict
+import dictionaries as dct
 
 load_dotenv()
 api_key = os.getenv('NBB_CBSO_sub_key')
@@ -189,7 +189,7 @@ def fetch_fin_data(company_data, period='N'):
     for symbol in period:
         for key, value in financial_dict.items():
             df = value[value['Period']==symbol].set_index('Code')
-            book_codes_dict = dict.bookcodes_dictionary.copy()
+            book_codes_dict = dct.bookcodes_dictionary.copy()
             for k, v in book_codes_dict.items():
                 if v in df.index:
                     book_codes_dict[k] = df.loc[v, "Value"]
