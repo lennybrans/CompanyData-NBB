@@ -12,6 +12,7 @@ for company in list_of_companies:
     dictionary[company] = company_data
 
 print(dictionary.keys())
+
 dreamland = dictionary['BE 0448.746.645']
 telenet = dictionary['0473416418']
 
