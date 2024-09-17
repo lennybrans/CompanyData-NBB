@@ -1,11 +1,13 @@
+from dotenv import load_dotenv
 import uuid
 import re
 import requests
 import json
 import pandas as pd
 import os
+import numpy as np
 
-from dotenv import load_dotenv
+import dictionaries as dict
 
 load_dotenv()
 api_key = os.getenv('NBB_CBSO_sub_key')
@@ -161,20 +163,42 @@ class CompanyData:
                 print(e)
         return data_dictionary
 
-# Under construction    
-    def fetch_quantative(self, data_dictionary):
-        """
-        Function extracts quantative data with all financial data of all 
-        submissions. Returns a Dataframe.
-        - Index is NBB code / accounting code
-        - includes current (N) and last year (NM1) submission.
-        """
-        rubrics_dict = {}
-        for key, value in data_dictionary.items():
-            df = pd.json_normalize(
-                value, 
-                record_path='Rubrics', 
-                meta='ReferenceNumber')
-            df.set_index('Code', inplace=True)
-            rubrics_dict[key]=df
-        return rubrics_dict
+## Functions to manipulate data
+# Under construction
+def _extract_fin_data(company_data_dict: dict) -> dict:
+    """
+    Function returns dictionary with reference number as key and a DataFrame 
+    as value.
+    """
+    fin_data_dict = {}
+    for key, value in company_data_dict.items():
+        df = pd.json_normalize(
+            value, 
+            record_path='Rubrics', 
+            meta='ReferenceNumber')
+        fin_data_dict[key]=df
+    return fin_data_dict
+
+def fetch_fin_data(company_data, period='N'):
+    """
+    Function returns a DataFrame with financial data.
+    """
+    fin_data = pd.DataFrame()
+    financial_dict = _extract_fin_data(company_data)
+    
+    for symbol in period:
+        for key, value in financial_dict.items():
+            df = value[value['Period']==symbol].set_index('Code')
+            book_codes_dict = dict.bookcodes_dictionary.copy()
+            for k, v in book_codes_dict.items():
+                if v in df.index:
+                    book_codes_dict[k] = df.loc[v, "Value"]
+                else:
+                    book_codes_dict[k] = np.nan
+                    
+            book_codes_dict['Period']=symbol
+            result = pd.DataFrame([book_codes_dict], index=[key])
+            fin_data = pd.concat([fin_data, result])
+    fin_data = fin_data.sort_index(axis=0)
+    
+    return fin_data
