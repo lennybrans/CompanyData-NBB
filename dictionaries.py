@@ -461,6 +461,9 @@ bookcodes_dictionary = {
     ' haar dochters (8781)':'8781',
     # STAAT VAN SCHULDEN
     # BEDRIJFSRESULTATEN
+    # Bedrijfsopbrengsten
+    'Andere - exploitatiesubsidies en vanwege de overheid ontvangen '
+    'compenserende bedragen (740)':'740',
     # Bedrijfskosten
     'Werknemers waarvoor de vennootschap een DIMONA-verklaring heeft '
     'ingediend of die zijn ingeschreven in het algemeen personeelsregister'
@@ -500,13 +503,57 @@ bookcodes_dictionary = {
     'Uitzendkrachten en ter beschikking van de vennootschap gestelde '
     'personen - Kosten voor de vennootschap (617)':'617',
     # FINANCIËLE RESULTATEN - IN DETAIL
+    # Reccurente financiele opbrengsten
+    'Door de overheid toegekende subsidies, aangerekend op de '
+    'resultatenrekening: Kapitaalsubsidies (9125)': '9125',
+    'Door de overheid toegekende subsidies, aangerekend op de '
+    'resultatenrekening: Interestsubsidies (9126)': '9126',
+    'Uitsplitsing van de overige financiële opbrengsten - Gerealiseerde '
+    'wisselkoersverschillen (754)': '754',
+    # Reccurente financiele kosten
+    'Afschrijving van kosten bij uitgifte van leningen (6501)': '6501',
+    'Geactiveerde interesten (6502)': '6502',
+    'Waardeverminderingen op vlottende activa - geboekt (6510)': '6510',
+    'Waardeverminderingen op vlottende activa - geboekt (6511)': '6511',
+    'Andere FK - Bedrag van het disconto ten laste van de vennootschap bij de '
+    'verhandeling van vorderingen (653)': '653',
+    'Voorzieningen met fin. karakter - toevoegingen (6560)': '6560',
+    'Voorzieningen met fin. karakter - bestedingen en terugnemingen '
+    '(6560)': '6560',
+    'Uitsplitsing van overige fin. kosten - gerealiseerde wisselkoerswinsten '
+    '(654)': '654',
+    'Uitsplitsing van overige fin. kosten - resultaten uit de omrekening van '
+    'vreemde valuta (655)': '655',
     # OPBRENGSTEN EN KOSTEN VAN UITZONDERLIJKE OMVANG OF UITZONDERLIJKE 
     # MATE VAN VOORKOMEN
     #' ()':'',
     # BELASTINGEN EN TAKSEN
-    #' ()':'',
+    # Belastingen op het resultaat
+    'Belastingen op het resultaat van het boekjaar (9134)': '9134',
+    'Belastingen op het resultaat vorige boekjaren (9138)': '9138',
+    'Bronnen van belastingslatenties - actieve (9141)': '9141',
+    'Bronnen van belastingslatenties - passieve (9144)': '9144',
+    # Belastingen op de toegevoegde waarde en belastingen ten laste van derden
+    'In rekening gebrachte belasting op de toegevoegde waarde - aan '
+    'vennootschap (9145)': '9145',
+    'In rekening gebrachte belasting op de toegevoegde waarde - door '
+    'vennootschap (9146)': '9146',
+    'Ingehouden bedragen ten laste van derden bij wijze van - '
+    'bedrijfsvoorheffing (9147)': '9147',
+    'Ingehouden bedragen ten laste van derden bij wijze van - '
+    'roerende voorheffing (9148)': '9148',
     # NIET IN DE BALANS OPGENOMEN RECHTEN EN VERPLICHTINGEN
-    #' ()':'',
+    'Door de vennootschap gestelde of onherroepelijk beloofde persoonlijke '
+    'zekerheden als waarborg voor schulden of verplichtingen van derden '
+    '(9149)': '9149',
+    'Door de vennootschap geëndosseerde handelseffecten in omloop '
+    '(9150)': '9150',
+    'Door de vennootschap getrokken of voor aval getekende handelseffecten '
+    '(9151)': '9151',
+    'Maximumbedrag ten belope waarvan andere verplichtingen van derden door de '
+    'vennootschap zijn gewaarborgd (9153)': '9153',
+    # Zakelijke zekerheden
+    # ' ()':'',
     # SOCIALE BALANS
     'Gemiddeld aantal werknemers - Voltijds (1001)':'1001',
     'Gemiddeld aantal werknemers - Deeltijds (1002)':'1002',
