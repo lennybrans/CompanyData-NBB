@@ -519,11 +519,43 @@ bookcodes_dictionary = {
     'verhandeling van vorderingen (653)': '653',
     'Voorzieningen met fin. karakter - toevoegingen (6560)': '6560',
     'Voorzieningen met fin. karakter - bestedingen en terugnemingen '
-    '(6560)': '6560',
+    '(6561)': '6561',
     'Uitsplitsing van overige fin. kosten - gerealiseerde wisselkoerswinsten '
     '(654)': '654',
     'Uitsplitsing van overige fin. kosten - resultaten uit de omrekening van '
     'vreemde valuta (655)': '655',
+    # Niet-reccurente opbrengsten
+    'Terugneming van afschrijvingen en van waardeverminderingen op immateriële '
+    'en materiële vaste activa (760)': '760',
+    "Terugneming van voorzieningen voor niet-recurrente bedrijfsrisico's en - "
+    "kosten (7620)": "7620",
+    'Meerwaarden bij de realisatie van immateriële en materiële vaste activa '
+    '(7630)': '7630',
+    'Andere niet-recurrente bedrijfsopbrengsten (764/8)': '764/8',
+    'Terugneming van waardeverminderingen op financiële vaste activa '
+    '(761)': '761',
+    "Terugneming van voorzieningen voor niet-recurrente financiële risico's en "
+    "kosten (7621)": "7621",
+    'Meerwaarden bij de realisatie van financiële vaste activa (7631)': '7631',
+    'Andere niet-recurrente financiële opbrengsten (769)': '769',
+    # Niet-reccurente kosten
+    'Niet-recurrente afschrijvingen en waardeverminderingen op '
+    'oprichtingskosten, op immateriële en materiële vaste activa (660)':'660',
+    "Voorzieningen voor niet-recurrente bedrijfsrisico's en -kosten: "
+    "toevoegingen (bestedingen) (6620)": "6620",
+    'Minderwaarden bij de realisatie van immateriële en materiële vaste activa '
+    '(6630)': '6630',
+    'Andere niet-recurrente bedrijfskosten (664/7)': '664/7',
+    'Als herstructureringskosten geactiveerde niet-recurrente bedrijfskosten '
+    '(6690)': '6690',
+    'Waardeverminderingen op financiële vaste activa (661)': '661',
+    "Voorzieningen voor niet-recurrente financiële risico's en kosten: "
+    "toevoegingen (bestedingen) (6621)": "6621",
+    'Minderwaarden bij de realisatie van financiële vaste activa '
+    '(6631)': '6631',
+    'Andere niet-recurrente financiële kosten (668)': '668',
+    'Als herstructureringskosten geactiveerde niet-recurrente financiële kosten'
+    ' (6691)': '6691',
     # OPBRENGSTEN EN KOSTEN VAN UITZONDERLIJKE OMVANG OF UITZONDERLIJKE 
     # MATE VAN VOORKOMEN
     #' ()':'',
