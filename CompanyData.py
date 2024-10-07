@@ -5,9 +5,9 @@ import requests
 import json
 import pandas as pd
 import os
-import numpy as np
 
 import dictionaries as dct
+import variables as var
 
 load_dotenv()
 api_key = os.getenv('NBB_CBSO_sub_key')
@@ -174,8 +174,8 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
     for key, value in company_data_dict.items():
         df = pd.json_normalize(
             value, 
-            record_path='Rubrics', 
-            meta='ReferenceNumber')
+            record_path=var.fin_data, 
+            meta=var.reference_id)
         fin_data_dict[key]=df
     return fin_data_dict
 
@@ -192,13 +192,236 @@ def fetch_fin_data(company_data, period='N'):
             book_codes_dict = dct.bookcodes_dictionary.copy()
             for k, v in book_codes_dict.items():
                 if v in df.index:
-                    book_codes_dict[k] = df.loc[v, "Value"]
+                    book_codes_dict[k] = float(df.loc[v, "Value"])
                 else:
-                    book_codes_dict[k] = np.nan
+                    book_codes_dict[k] = int(0)
                     
-            book_codes_dict['Period']=symbol
+            book_codes_dict['Period']=str(symbol)
             result = pd.DataFrame([book_codes_dict], index=[key])
             fin_data = pd.concat([fin_data, result])
     fin_data = fin_data.sort_index(axis=0)
     
     return fin_data
+
+def days_sales_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
+    '''
+    '''
+    handelsvorderingen = financial_data[
+        'Handelsvorderingen (40)'
+    ]
+    geendoss_handelseff = financial_data[
+        'Door de vennootschap geëndosseerde handelseffecten in omloop (9150)'
+    ]
+    omzet = financial_data[
+        'Omzet (70)'
+    ]
+    andere_bedrijfsopbr = financial_data[
+        'Andere bedrijfsopbrengsten (74)'
+    ]
+    exploit_subs = financial_data[
+        'Andere - exploitatiesubsidies en vanwege de overheid ontvangen '
+        'compenserende bedragen (740)'
+    ]
+    btw_door_vennootschap = financial_data[
+        'In rekening gebrachte belasting op de toegevoegde waarde '
+        '- door vennootschap (9146)'
+    ]
+    
+    numerator = handelsvorderingen + geendoss_handelseff
+    denominator = (omzet + andere_bedrijfsopbr - exploit_subs + 
+                   btw_door_vennootschap)
+    
+    if denominator == 0:
+        dso = 'Zero Division'
+    else:
+        dso = round(numerator/denominator * 365)
+
+    financial_data['DSO'] = dso
+    return financial_data
+
+def days_payables_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
+    '''
+    '''
+    handelsschulden = financial_data[
+        'Handelsschulden (44)'
+    ]
+    aankopen = financial_data[
+        'Aankopen (600/8)'
+    ]
+    diensten_diverse = financial_data[
+        'Diensten en diverse goederen (61)'
+    ]
+    btw_aan_vennootschap = financial_data[
+        'In rekening gebrachte belasting op de toegevoegde waarde '
+        '- aan vennootschap (9145)'
+    ]
+    
+    numerator = handelsschulden
+    denominator = aankopen + diensten_diverse + btw_aan_vennootschap
+    
+    if denominator == 0:
+        dpo = 'Zero Division'
+    else:
+        dpo = round(numerator/denominator * 365)
+    
+    financial_data['DPO'] = dpo
+    return financial_data
+
+def inventory_cycle_finished(financial_data: pd.DataFrame) -> pd.DataFrame:
+    '''
+    '''
+    # Numerator
+    bedrijfskosten = (
+        financial_data['Handelsgoederen, grond- en hulpstoffen (60)'] +
+        financial_data['Diensten en diverse goederen (61)'] +
+        financial_data['Bezoldigingen, sociale lasten en pensioenen (62)'] +
+        financial_data['Afschrijvingen en waardeverminderingen op '
+                       'oprichtingskosten, op immateriële en materiële vaste '
+                       'activa (630)'] +
+        financial_data['Waardeverminderingen op voorraden, op bestellingen in '
+                       'uitvoering en op handelsvorderingen: toevoegingen '
+                       '(terugnemingen) (631/4)'] +
+        financial_data["Voorzieningen voor risico's en kosten: toevoegingen "
+                       "(bestedingen en terugnemingen) (635/8)"] +
+        financial_data['Andere bedrijfskosten (640/8)'] +
+        financial_data['Als herstructureringskosten geactiveerde bedrijfskosten'
+                       ' (649)']
+    )
+
+    # Denominator
+    wijziging_voorraad = financial_data[
+        'Voorraad goederen in bewerking en gereed product en bestellingen in '
+        'uitvoering: toename (afname) (71)'
+    ]
+    geprod_vaste_act = financial_data[
+        'Geproduceerde vaste activa (72)'
+    ]
+    exploit_subs = financial_data[
+        'Andere - exploitatiesubsidies en vanwege de overheid ontvangen '
+        'compenserende bedragen (740)'
+    ]
+    overheid_kapsub = financial_data[
+        'Door de overheid toegekende subsidies, aangerekend op de '
+        'resultatenrekening: Kapitaalsubsidies (9125)'
+    ]
+    goed_bewerking = financial_data[
+        'Goederen in bewerking (32)'
+    ]
+    gereed_product = financial_data[
+        'Gereed product (33)'
+    ]
+    onroerend_verkoop = financial_data[
+        'Onroerende goederen bestemd voor verkoop (35)'
+    ]
+    best_in_uitvoering = financial_data[
+        'Bestellingen in uitvoering (37)'
+    ]
+    
+    
+    numerator = (bedrijfskosten - wijziging_voorraad - geprod_vaste_act -
+                 exploit_subs - overheid_kapsub)
+    denominator = (goed_bewerking + gereed_product + onroerend_verkoop +
+                   best_in_uitvoering)
+    
+    if denominator == 0:
+        doi = int(0)
+    else:
+        doi = round(numerator/denominator)
+
+    financial_data['DIO_finished'] = doi
+    return financial_data
+
+def inventory_cycle_crude(financial_data: pd.DataFrame) -> pd.DataFrame:
+    '''
+    '''
+    handelsgoederen_toename = financial_data[
+        'Handelsgoederen, grond- en hulpstoffen (60)'
+    ]
+    grondstoffen = financial_data[
+        'Grond- en hulpstoffen (30/31)'
+    ]
+    handelsgoederen = financial_data[
+        'Handelsgoederen (34)'
+    ]
+    onroerend_verkoop = financial_data[
+        'Onroerende goederen bestemd voor verkoop (35)'
+    ]
+    vooruitbetalingen = financial_data[
+        'Vooruitbetalingen (36)'
+    ]
+    
+    numerator = handelsgoederen_toename
+    denominator = (grondstoffen + handelsgoederen + onroerend_verkoop +
+                   vooruitbetalingen)
+    
+    if denominator == 0:
+        doi = int(0)
+    else:
+        doi = round(numerator/denominator)
+
+    financial_data['DIO_crude'] = doi
+    return financial_data
+
+def ccc(financial_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns ccc.
+    """
+    dso = financial_data.DSO
+    dpo = financial_data.DPO
+    dio_crude = financial_data.DIO_crude
+    dio_finished = financial_data.DIO_finished
+    ccc = dso + (dio_crude + dio_finished) - dpo
+    financial_data['ccc'] = ccc
+    return financial_data
+
+def ebit_da(financial_data: pd.DataFrame, calc='ebit') -> pd.DataFrame:
+    winst_verlies = financial_data[
+        'Winst (Verlies) van het boekjaar vóór belasting (9903)'
+    ]
+    opbr_fin_activa = financial_data[
+        'Opbrengsten uit financiële vaste activa (750)'
+    ]
+    opbr_vlot_activa = financial_data[
+        'Opbrengsten uit vlottende activa (751)'
+    ]
+    andere_fin_opbr = financial_data[
+        'Andere financiële opbrengsten (752/9)'
+    ]
+    kosten_schulden = financial_data[
+        'Kosten van schulden (650)'
+    ]
+    andere_fin_kosten = financial_data[
+        'Andere financiële kosten (652/9)'
+    ]
+    andere_niet_rec_fin_opbr = financial_data[
+        'Niet-recurrente financiële opbrengsten (76B)'
+    ]
+    andere_niet_rec_fin_kosten = financial_data[
+        'Niet-recurrente financiële kosten (66B)'
+    ]
+
+    ebit = (winst_verlies - opbr_fin_activa - opbr_vlot_activa - 
+            andere_fin_opbr + kosten_schulden + andere_fin_kosten -
+            andere_niet_rec_fin_opbr + andere_niet_rec_fin_kosten
+    )
+    if calc == 'ebit':
+        financial_data['ebit'] = ebit
+        return financial_data
+    
+    da_fixed_activa = financial_data[
+        'Afschrijvingen en waardeverminderingen op oprichtingskosten, op '
+        'immateriële en materiële vaste activa (630)'
+    ]
+    da_inventory = financial_data[
+        'Waardeverminderingen op voorraden, op bestellingen in uitvoering en '
+        'op handelsvorderingen: toevoegingen (terugnemingen) (631/4)'
+    ]
+    da_cur_act_non_inv_non_so = financial_data[
+        'Waardeverminderingen op vlottende activa andere dan voorraden, '
+        'bestellingen in uitvoering en handelsvorderingen: toevoegingen '
+        '(terugnemingen) (651)'
+    ]
+    ebitda = ebit + da_fixed_activa + da_inventory + da_cur_act_non_inv_non_so
+    if calc == 'ebitda':
+        financial_data['ebitda'] = ebitda
+        return financial_data
