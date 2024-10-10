@@ -162,29 +162,6 @@ class CompanyData:
                 e = 'Not a JSONXBRL'
                 print(e)
         return data_dictionary
-    
-# Refactoring OK    
-    def fetch_xbrl(self, 
-                   reference_variable, 
-                   accept_submission='application/x.xbrl') -> dict:
-        """
-        Function makes an API call for data. Add variable containing the 
-        reference list or vector it.
-        Returns the data in a dictionary. The amount of keys in the dictionary 
-        is equal to the amount of years requested in the references.
-        """
-        reference_URLs = reference_variable['AccountingDataURL']
-        for data_url in reference_URLs:
-            try:
-                data = self._api_call(
-                    url=data_url, 
-                    accept_form=accept_submission
-                    )
-                data = data.decode('utf-8')
-            except Exception as e:
-                e = 'Error'
-                print(e)
-        return data
 
 ## Functions to manipulate data
 # Under construction
