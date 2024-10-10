@@ -1,10 +1,10 @@
-from dotenv import load_dotenv
 import uuid
 import re
-import requests
 import json
-import pandas as pd
 import os
+from dotenv import load_dotenv
+import pandas as pd
+import requests
 
 import dictionaries as dct
 import variables as var
@@ -23,8 +23,8 @@ class CompanyData:
 # Refactoring OK: Raises ValueError i.c.o. wrong input length-wise
     def _clean_input(self, user_input: str) -> str:
         '''
-        Function removes non-numeric characters. 
-        Returns only-numeric string or raises a ValueError. 
+        Returns only-numeric string or raises a ValueError.
+        Removes non-numeric characters. 
         Important: it checks the numeric correct input, not whether the 
         company ID is in the databank.
         '''
@@ -33,14 +33,13 @@ class CompanyData:
         if len(cleaned_input) in [10, 11]:
             return cleaned_input
         else:
-            raise ValueError(
-                "Wrong input - Length mismatch")
+            raise ValueError("Wrong input - Length mismatch")
         
 # Refactoring OK        
     def _reference_url_creation(self):
         """
-        Function generates URL to receive the reference list from NBB.
-        Default database is authentic. Other options are 'extracts' and 
+        Returns an API compatible URL based on input.
+        Default database is 'authentic'. Other options are 'extracts' and 
         'improved' but the function is not yet adjusted to handle this.
         """
         environment = "https://ws.cbso.nbb.be/"
@@ -63,7 +62,7 @@ class CompanyData:
             'X-Request-Id': uuid_code,
             'NBB-CBSO-Subscription-Key': api_key,
             'Accept': accept_form,
-            'User-Agent': 'PostmanRuntime/7.37.3'
+            'User-Agent': 'PostmanRuntime/7.37.3',
         }
 
         try:
@@ -83,29 +82,33 @@ class CompanyData:
         
 # Needs an update: 'Geconsolideerde Jaarrekening' is not yet available via API
 # but might be in the future. Unfortunately, the 'ModelType' is not a unique 
-# indicator across companies/industries to select the 'Jaarrekening'.
+# identifier across companies/industries to select the 'Jaarrekening'.
     def _handle_df_of_references(self, df_of_references):
         """
         Function filters the DataFrame of References.
-        - Selects only 'Jaarrekening' and not 'Geconsolideerde Jaarrekening'. 
-        - Compares bookyears and selects the latest submission, in case of 
-          a correction.
+        - Selects 'AccountingDataURL' colum, which only is available for 
+          'Jaarrekening' and not for 'Geconsolideerde Jaarrekening'. 
+        - Compares bookyears and selects the latest submission, in case 
+          a correction was submitted.
         """
         df_of_references.sort_values(
             ['ExerciseDates.endDate', 'DepositDate'],
             ignore_index=True, 
-            inplace=True)
+            inplace=True,
+            )
 
         df_of_references.dropna(
             subset=['AccountingDataURL'],
             axis=0,
-            inplace=True)
+            inplace=True,
+            )
 
         df_of_references.drop_duplicates(
             subset=['ExerciseDates.startDate', 'ExerciseDates.endDate'],
             keep='last',
             ignore_index=True,
-            inplace=True)
+            inplace=True,
+            )
 
         return df_of_references
     
@@ -114,20 +117,19 @@ class CompanyData:
                          year_span=1, 
                          accept_reference="application/json"):
         """
-        Function makes an API call for references. 
-        Returns a DataFrame with the references from the NBB for one specific
-        company ID (KBO-nummer). 
+        Function makes an API call for references and returns a DataFrame with 
+        the references from the NBB for one specific company ID (KBO-nummer). 
         Default year span is one year (last submission).
         """
         api_answer = self._api_call(
             self._reference_url_creation(), 
-            accept_reference
+            accept_reference,
             )
         
-        # In web tool use return the error, otherwise raise the error
+        # In web tool, use return error, otherwise raise the error
         if isinstance(api_answer, Exception):
             no_submission = ValueError(
-                "No submission found in NBB database. " +
+                "No submission found in NBB database. "
                 "Please, double check company ID.")
             print(api_answer)
             return no_submission
@@ -146,6 +148,7 @@ class CompanyData:
         reference list or vector it.
         Returns the data in a dictionary. The amount of keys in the dictionary 
         is equal to the amount of years requested in the references.
+        Cuurently, it does not accept XBRL format.
         """
         data_dictionary = {}
         reference_URLs = reference_variable['AccountingDataURL']
@@ -157,7 +160,7 @@ class CompanyData:
                     )
                 data_dict = json.loads(data)
                 reference_number = data_dict['ReferenceNumber']
-                data_dictionary[reference_number]=data_dict
+                data_dictionary[reference_number] = data_dict
             except Exception as e:
                 e = 'Not a JSONXBRL'
                 print(e)
@@ -167,7 +170,7 @@ class CompanyData:
 # Under construction
 def _extract_fin_data(company_data_dict: dict) -> dict:
     """
-    Function returns dictionary with reference number as key and a DataFrame 
+    Function returns a dictionary with Reference Number as key and a DataFrame 
     as value.
     """
     fin_data_dict = {}
@@ -175,20 +178,23 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
         df = pd.json_normalize(
             value, 
             record_path=var.fin_data, 
-            meta=var.reference_id)
-        fin_data_dict[key]=df
+            meta=var.reference_id
+            )
+        fin_data_dict[key] = df
     return fin_data_dict
 
 def fetch_fin_data(company_data, period='N'):
     """
-    Function returns a DataFrame with financial data.
+    Function returns a DataFrame with financial data. The 'N' argument select
+    the data for the current year. It is also possible to select the data from
+    the previous year by changing it to 'NM1'.
     """
     fin_data = pd.DataFrame()
     financial_dict = _extract_fin_data(company_data)
     
     for symbol in period:
         for key, value in financial_dict.items():
-            df = value[value['Period']==symbol].set_index('Code')
+            df = value[value['Period'] == symbol].set_index('Code')
             book_codes_dict = dct.bookcodes_dictionary.copy()
             for k, v in book_codes_dict.items():
                 if v in df.index:
@@ -196,7 +202,7 @@ def fetch_fin_data(company_data, period='N'):
                 else:
                     book_codes_dict[k] = int(0)
                     
-            book_codes_dict['Period']=str(symbol)
+            book_codes_dict['Period'] = str(symbol)
             result = pd.DataFrame([book_codes_dict], index=[key])
             fin_data = pd.concat([fin_data, result])
     fin_data = fin_data.sort_index(axis=0)
@@ -208,28 +214,28 @@ def days_sales_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
     '''
     handelsvorderingen = financial_data[
         'Handelsvorderingen (40)'
-    ]
+        ]
     geendoss_handelseff = financial_data[
         'Door de vennootschap geëndosseerde handelseffecten in omloop (9150)'
-    ]
+        ]
     omzet = financial_data[
         'Omzet (70)'
-    ]
+        ]
     andere_bedrijfsopbr = financial_data[
         'Andere bedrijfsopbrengsten (74)'
-    ]
+        ]
     exploit_subs = financial_data[
         'Andere - exploitatiesubsidies en vanwege de overheid ontvangen '
         'compenserende bedragen (740)'
-    ]
+        ]
     btw_door_vennootschap = financial_data[
         'In rekening gebrachte belasting op de toegevoegde waarde '
         '- door vennootschap (9146)'
-    ]
+        ]
     
     numerator = handelsvorderingen + geendoss_handelseff
-    denominator = (omzet + andere_bedrijfsopbr - exploit_subs + 
-                   btw_door_vennootschap)
+    denominator = (omzet + andere_bedrijfsopbr
+                   - exploit_subs + btw_door_vennootschap)
     
     if denominator == 0:
         dso = 'Zero Division'
@@ -244,17 +250,17 @@ def days_payables_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
     '''
     handelsschulden = financial_data[
         'Handelsschulden (44)'
-    ]
+        ]
     aankopen = financial_data[
         'Aankopen (600/8)'
-    ]
+        ]
     diensten_diverse = financial_data[
         'Diensten en diverse goederen (61)'
-    ]
+        ]
     btw_aan_vennootschap = financial_data[
         'In rekening gebrachte belasting op de toegevoegde waarde '
         '- aan vennootschap (9145)'
-    ]
+        ]
     
     numerator = handelsschulden
     denominator = aankopen + diensten_diverse + btw_aan_vennootschap
@@ -272,56 +278,56 @@ def inventory_cycle_finished(financial_data: pd.DataFrame) -> pd.DataFrame:
     '''
     # Numerator
     bedrijfskosten = (
-        financial_data['Handelsgoederen, grond- en hulpstoffen (60)'] +
-        financial_data['Diensten en diverse goederen (61)'] +
-        financial_data['Bezoldigingen, sociale lasten en pensioenen (62)'] +
-        financial_data['Afschrijvingen en waardeverminderingen op '
-                       'oprichtingskosten, op immateriële en materiële vaste '
-                       'activa (630)'] +
-        financial_data['Waardeverminderingen op voorraden, op bestellingen in '
-                       'uitvoering en op handelsvorderingen: toevoegingen '
-                       '(terugnemingen) (631/4)'] +
-        financial_data["Voorzieningen voor risico's en kosten: toevoegingen "
-                       "(bestedingen en terugnemingen) (635/8)"] +
-        financial_data['Andere bedrijfskosten (640/8)'] +
-        financial_data['Als herstructureringskosten geactiveerde bedrijfskosten'
-                       ' (649)']
+        financial_data['Handelsgoederen, grond- en hulpstoffen (60)']
+        + financial_data['Diensten en diverse goederen (61)'] 
+        + financial_data['Bezoldigingen, sociale lasten en pensioenen (62)'] 
+        + financial_data['Afschrijvingen en waardeverminderingen op '
+                         'oprichtingskosten, op immateriële en materiële vaste '
+                         'activa (630)'] 
+        + financial_data['Waardeverminderingen op voorraden, op bestellingen in'
+                         ' uitvoering en op handelsvorderingen: toevoegingen '
+                         '(terugnemingen) (631/4)'] 
+        + financial_data["Voorzieningen voor risico's en kosten: toevoegingen "
+                         "(bestedingen en terugnemingen) (635/8)"] 
+        + financial_data['Andere bedrijfskosten (640/8)'] 
+        + financial_data['Als herstructureringskosten geactiveerde '
+                         'bedrijfskosten (649)']
     )
 
     # Denominator
     wijziging_voorraad = financial_data[
         'Voorraad goederen in bewerking en gereed product en bestellingen in '
         'uitvoering: toename (afname) (71)'
-    ]
-    geprod_vaste_act = financial_data[
+        ]
+    geprod_vaste_act = financial_data[  
         'Geproduceerde vaste activa (72)'
-    ]
+        ]
     exploit_subs = financial_data[
         'Andere - exploitatiesubsidies en vanwege de overheid ontvangen '
         'compenserende bedragen (740)'
-    ]
+        ]
     overheid_kapsub = financial_data[
         'Door de overheid toegekende subsidies, aangerekend op de '
         'resultatenrekening: Kapitaalsubsidies (9125)'
-    ]
+        ]
     goed_bewerking = financial_data[
         'Goederen in bewerking (32)'
-    ]
+        ]
     gereed_product = financial_data[
         'Gereed product (33)'
-    ]
+        ]
     onroerend_verkoop = financial_data[
         'Onroerende goederen bestemd voor verkoop (35)'
-    ]
+        ]
     best_in_uitvoering = financial_data[
         'Bestellingen in uitvoering (37)'
-    ]
+        ]
     
     
-    numerator = (bedrijfskosten - wijziging_voorraad - geprod_vaste_act -
-                 exploit_subs - overheid_kapsub)
-    denominator = (goed_bewerking + gereed_product + onroerend_verkoop +
-                   best_in_uitvoering)
+    numerator = (bedrijfskosten - wijziging_voorraad - geprod_vaste_act
+                 - exploit_subs - overheid_kapsub)
+    denominator = (goed_bewerking + gereed_product 
+                   + onroerend_verkoop + best_in_uitvoering)
     
     if denominator == 0:
         doi = int(0)
@@ -336,23 +342,23 @@ def inventory_cycle_crude(financial_data: pd.DataFrame) -> pd.DataFrame:
     '''
     handelsgoederen_toename = financial_data[
         'Handelsgoederen, grond- en hulpstoffen (60)'
-    ]
+        ]
     grondstoffen = financial_data[
         'Grond- en hulpstoffen (30/31)'
-    ]
+        ]   
     handelsgoederen = financial_data[
         'Handelsgoederen (34)'
-    ]
+        ]
     onroerend_verkoop = financial_data[
         'Onroerende goederen bestemd voor verkoop (35)'
-    ]
+        ]
     vooruitbetalingen = financial_data[
         'Vooruitbetalingen (36)'
-    ]
+        ]
     
     numerator = handelsgoederen_toename
-    denominator = (grondstoffen + handelsgoederen + onroerend_verkoop +
-                   vooruitbetalingen)
+    denominator = (grondstoffen + handelsgoederen 
+                   + onroerend_verkoop + vooruitbetalingen)
     
     if denominator == 0:
         doi = int(0)
@@ -400,9 +406,9 @@ def ebit_da(financial_data: pd.DataFrame, calc='ebit') -> pd.DataFrame:
         'Niet-recurrente financiële kosten (66B)'
     ]
 
-    ebit = (winst_verlies - opbr_fin_activa - opbr_vlot_activa - 
-            andere_fin_opbr + kosten_schulden + andere_fin_kosten -
-            andere_niet_rec_fin_opbr + andere_niet_rec_fin_kosten
+    ebit = (winst_verlies - opbr_fin_activa - opbr_vlot_activa 
+            - andere_fin_opbr + kosten_schulden + andere_fin_kosten 
+            - andere_niet_rec_fin_opbr + andere_niet_rec_fin_kosten
     )
     if calc == 'ebit':
         financial_data['ebit'] = ebit
