@@ -7,7 +7,6 @@ import pandas as pd
 import requests
 
 import dictionaries as dct
-import variables as var
 
 load_dotenv()
 api_key = os.getenv('NBB_CBSO_sub_key')
@@ -151,7 +150,7 @@ class CompanyData:
         Cuurently, it does not accept XBRL format.
         """
         data_dictionary = {}
-        reference_URLs = reference_variable['AccountingDataURL']
+        reference_URLs = reference_variable.AccountingDataURL
         for data_url in reference_URLs:
             try:
                 data = self._api_call(
@@ -177,8 +176,8 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
     for key, value in company_data_dict.items():
         df = pd.json_normalize(
             value, 
-            record_path=var.fin_data, 
-            meta=var.reference_id
+            record_path='Rubrics', 
+            meta='ReferenceNumber'
             )
         fin_data_dict[key] = df
     return fin_data_dict
