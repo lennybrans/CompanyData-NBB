@@ -1,6 +1,4 @@
 import CompanyData as cd
-import variables as var
-
 
 company =cd.CompanyData("0428003392") # BE 0428.003.392
 
