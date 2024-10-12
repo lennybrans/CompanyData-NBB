@@ -3,8 +3,9 @@ import CompanyData as cd
 company =cd.CompanyData("0428003392") # BE 0428.003.392
 
 # Reference API call
-company_references = company.fetch_references(year_span=1)
-print(company_references)
+company_references = company.fetch_references(year_span=2)
+company_dict = company.fetch_data(company_references)
+print(company_dict.keys())
 
 # # Data API call
 # company_data = company.fetch_data(company_references)
