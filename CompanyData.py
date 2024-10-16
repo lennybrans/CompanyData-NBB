@@ -150,7 +150,7 @@ class CompanyData:
         Cuurently, it does not accept XBRL format.
         """
         data_dictionary = {}
-        reference_URLs = reference_variable.AccountingDataURL
+        reference_URLs = reference_variable['AccountingDataURL']
         for data_url in reference_URLs:
             try:
                 data = self._api_call(
