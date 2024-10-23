@@ -6,7 +6,7 @@ company =cd.CompanyData("0428003392") # BE 0428.003.392
 company_references = company.fetch_references(year_span=2)
 company_dict = company.fetch_data(company_references)
 company_fin = cd.fetch_fin_data(company_dict)
-print(company_fin)
+print(company_dict)
 
 # # Data API call
 # company_data = company.fetch_data(company_references)
