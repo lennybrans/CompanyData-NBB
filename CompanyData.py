@@ -140,17 +140,21 @@ class CompanyData:
     
 # Refactoring OK    
     def fetch_data(self, 
-                   reference_variable, 
+                   reference_variable: pd.DataFrame, 
                    accept_submission='application/x.jsonxbrl') -> dict:
         """
         Function makes an API call for data. Add variable containing the 
         reference list or vector it.
         Returns the data in a dictionary. The amount of keys in the dictionary 
         is equal to the amount of years requested in the references.
-        Cuurently, it does not accept XBRL format.
+        Currently, it does not accept XBRL format.
         """
         data_dictionary = {}
-        reference_URLs = reference_variable['AccountingDataURL']
+        reference_URLs = reference_variable.AccountingDataURL
+        date_dict = (reference_variable.set_index('ReferenceNumber')
+                      [['ExerciseDates.startDate', 'ExerciseDates.endDate']]
+                      .to_dict('index'))
+
         for data_url in reference_URLs:
             try:
                 data = self._api_call(
@@ -158,7 +162,8 @@ class CompanyData:
                     accept_form=accept_submission
                     )
                 data_dict = json.loads(data)
-                reference_number = data_dict['ReferenceNumber']
+                reference_number = data_dict.get('ReferenceNumber')
+                data_dict['Period'] = date_dict[reference_number]
                 data_dictionary[reference_number] = data_dict
             except Exception as e:
                 e = 'Not a JSONXBRL'
