@@ -151,7 +151,7 @@ class CompanyData:
         """
         data_dictionary = {}
         reference_URLs = reference_variable.AccountingDataURL
-        date_dict = (reference_variable.set_index('ReferenceNumber')
+        dates_dict = (reference_variable.set_index('ReferenceNumber')
                       [['ExerciseDates.startDate', 'ExerciseDates.endDate']]
                       .to_dict('index'))
 
@@ -163,7 +163,8 @@ class CompanyData:
                     )
                 data_dict = json.loads(data)
                 reference_number = data_dict.get('ReferenceNumber')
-                data_dict['Period'] = date_dict[reference_number]
+                # data_dict.update(dates_dict) ?
+                data_dict['Period'] = dates_dict[reference_number]
                 data_dictionary[reference_number] = data_dict
             except Exception as e:
                 e = 'Not a JSONXBRL'
