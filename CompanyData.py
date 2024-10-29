@@ -19,7 +19,6 @@ class CompanyData:
         """
         self.company_number = self._clean_input(company_number)
 
-# Refactoring OK: Raises ValueError i.c.o. wrong input length-wise
     def _clean_input(self, user_input: str) -> str:
         '''
         Returns only-numeric string or raises a ValueError.
@@ -33,8 +32,7 @@ class CompanyData:
             return cleaned_input
         else:
             raise ValueError("Wrong input - Length mismatch")
-        
-# Refactoring OK        
+               
     def _reference_url_creation(self):
         """
         Returns an API compatible URL based on input.
@@ -50,7 +48,6 @@ class CompanyData:
         url = environment + database + action + company_id + type_action
         return url
     
-# Refactoring OK: Prints HTTP-error or returns it to the tool
     def _api_call(self, url: str, accept_form: str) -> bytes:
         """
         Function makes API call for references list. 
@@ -111,7 +108,6 @@ class CompanyData:
 
         return df_of_references
     
-# Refactoring OK 
     def fetch_references(self, 
                          year_span=1, 
                          accept_reference="application/json"):
@@ -137,8 +133,7 @@ class CompanyData:
         df_of_references = self._handle_df_of_references(df_of_references)
         df_of_references = df_of_references.tail(year_span)
         return df_of_references
-    
-# Refactoring OK    
+        
     def fetch_data(self, 
                    reference_variable: pd.DataFrame, 
                    accept_submission='application/x.jsonxbrl') -> dict:
@@ -164,7 +159,7 @@ class CompanyData:
                 data_dict = json.loads(data)
                 reference_number = data_dict.get('ReferenceNumber')
                 # data_dict.update(dates_dict) ?
-                data_dict['Period'] = dates_dict[reference_number]
+                data_dict['Span'] = dates_dict[reference_number]
                 data_dictionary[reference_number] = data_dict
             except Exception as e:
                 e = 'Not a JSONXBRL'
@@ -178,19 +173,23 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
     Function returns a dictionary with Reference Number as key and a DataFrame 
     as value.
     """
-    fin_data_dict = {}
+    financial_dict = {}
+    
     for key, value in company_data_dict.items():
         df = pd.json_normalize(
             value, 
-            record_path='Rubrics', 
-            meta='ReferenceNumber'
+            record_path=['Rubrics'], 
+            meta=[
+                'ReferenceNumber',
+                ['Span', 'ExerciseDates.startDate'],
+                ['Span', 'ExerciseDates.endDate']]
             )
-        fin_data_dict[key] = df
-    return fin_data_dict
+        financial_dict[key] = df
+    return financial_dict
 
 def fetch_fin_data(company_data, period='N'):
     """
-    Function returns a DataFrame with financial data. The 'N' argument select
+    Function returns a DataFrame with financial data. The 'N' argument selects
     the data for the current year. It is also possible to select the data from
     the previous year by changing it to 'NM1'.
     """
@@ -206,8 +205,9 @@ def fetch_fin_data(company_data, period='N'):
                     book_codes_dict[k] = float(df.loc[v, "Value"])
                 else:
                     book_codes_dict[k] = int(0)
-                    
-            book_codes_dict['Period'] = str(symbol)
+        
+            book_codes_dict['StartDate'] = df['Span.ExerciseDates.startDate'].iloc[0]
+            book_codes_dict['EndDate'] = df['Span.ExerciseDates.endDate'].iloc[0]
             result = pd.DataFrame([book_codes_dict], index=[key])
             fin_data = pd.concat([fin_data, result])
     fin_data = fin_data.sort_index(axis=0)
