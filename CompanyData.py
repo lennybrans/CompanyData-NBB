@@ -68,7 +68,7 @@ class CompanyData:
             api_answer = response.content
             return api_answer
         except requests.exceptions.HTTPError as http_err:
-            raise http_err
+            return http_err
         except requests.exceptions.RequestException as req_err:
             print(f"This is a Request Error: {req_err}")
             return req_err
@@ -121,9 +121,8 @@ class CompanyData:
             accept_reference,
             )
         
-        # In web tool, use return error, otherwise raise the error
         if isinstance(api_answer, Exception):
-            raise api_answer
+            return pd.DataFrame() # If 404 error, alternative way?
         
         df_of_references = pd.json_normalize(json.loads(api_answer))
         df_of_references = self._handle_df_of_references(df_of_references)
@@ -141,25 +140,28 @@ class CompanyData:
         Currently, it does not accept XBRL format.
         """
         data_dictionary = {}
-        reference_URLs = reference_variable.AccountingDataURL
-        dates_dict = (reference_variable.set_index('ReferenceNumber')
-                      [['ExerciseDates.startDate', 'ExerciseDates.endDate']]
-                      .to_dict('index'))
-
-        for data_url in reference_URLs:
-            try:
-                data = self._api_call(
-                    url=data_url, 
-                    accept_form=accept_submission
-                    )
-                data_dict = json.loads(data)
-                reference_number = data_dict.get('ReferenceNumber')
-                # data_dict.update(dates_dict) ?
-                data_dict['Span'] = dates_dict[reference_number]
-                data_dictionary[reference_number] = data_dict
-            except Exception as e:
-                e = 'Not a JSONXBRL'
-                print(e)
+        if not reference_variable.empty:
+            reference_URLs = reference_variable.AccountingDataURL
+            dates_dict = (reference_variable.set_index('ReferenceNumber')
+                        [['ExerciseDates.startDate', 'ExerciseDates.endDate']]
+                        .to_dict('index'))
+            
+            for data_url in reference_URLs:
+                try:
+                    data = self._api_call(
+                        url=data_url, 
+                        accept_form=accept_submission
+                        )
+                    data_dict = json.loads(data)
+                    reference_number = data_dict.get('ReferenceNumber')
+                    # data_dict.update(dates_dict) ?
+                    data_dict['Span'] = dates_dict[reference_number]
+                    data_dictionary[reference_number] = data_dict
+                except Exception as e:
+                    e = 'Not a JSONXBRL'
+                    print(e)
+        else:
+            pass # If 404 error, alternative way?
         return data_dictionary
 
 ## Functions to manipulate data
@@ -169,22 +171,25 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
     Function returns a dictionary with Reference Number as key and a DataFrame 
     as value.
     """
-    financial_dict = {}
-    
-    for key, value in company_data_dict.items():
-        df = pd.json_normalize(
-            value, 
-            record_path=['Rubrics'], 
-            meta=[
-                'EnterpriseName',
-                'ReferenceNumber',
-                ['Span', 'ExerciseDates.startDate'],
-                ['Span', 'ExerciseDates.endDate']]
-            )
-        financial_dict[key] = df
+    if company_data_dict:
+        financial_dict = {}
+        
+        for key, value in company_data_dict.items():
+            df = pd.json_normalize(
+                value, 
+                record_path=['Rubrics'], 
+                meta=[
+                    'EnterpriseName',
+                    'ReferenceNumber',
+                    ['Span', 'ExerciseDates.startDate'],
+                    ['Span', 'ExerciseDates.endDate']]
+                )
+            financial_dict[key] = df
+    else:
+        financial_dict = {} # If 404 error, alternative way?
     return financial_dict
 
-def fetch_fin_data(company_data, period='N'):
+def fetch_fin_data(company_data: dict, period='N') -> pd.DataFrame:
     """
     Function returns a DataFrame with financial data. The 'N' argument selects
     the data for the current year. It is also possible to select the data from
@@ -193,23 +198,25 @@ def fetch_fin_data(company_data, period='N'):
     fin_data = pd.DataFrame()
     financial_dict = _extract_fin_data(company_data)
     
-    for symbol in period:
-        for key, value in financial_dict.items():
-            df = value[value['Period'] == symbol].set_index('Code')
-            book_codes_dict = dct.bookcodes_dictionary.copy()
-            for k, v in book_codes_dict.items():
-                if v in df.index:
-                    book_codes_dict[k] = float(df.loc[v, "Value"])
-                else:
-                    book_codes_dict[k] = int(0)
-            
-            book_codes_dict['EnterpriseName'] = df['EnterpriseName'].iloc[0]
-            book_codes_dict['StartDate'] = df['Span.ExerciseDates.startDate'].iloc[0]
-            book_codes_dict['EndDate'] = df['Span.ExerciseDates.endDate'].iloc[0]
-            result = pd.DataFrame([book_codes_dict], index=[key])
-            fin_data = pd.concat([fin_data, result])
-    fin_data = fin_data.sort_index(axis=0)
-    
+    if financial_dict:
+        for symbol in period:
+            for key, value in financial_dict.items():
+                df = value[value['Period'] == symbol].set_index('Code')
+                book_codes_dict = dct.bookcodes_dictionary.copy()
+                for k, v in book_codes_dict.items():
+                    if v in df.index:
+                        book_codes_dict[k] = float(df.loc[v, "Value"])
+                    else:
+                        book_codes_dict[k] = int(0)
+                
+                book_codes_dict['EnterpriseName'] = df['EnterpriseName'].iloc[0]
+                book_codes_dict['StartDate'] = df['Span.ExerciseDates.startDate'].iloc[0]
+                book_codes_dict['EndDate'] = df['Span.ExerciseDates.endDate'].iloc[0]
+                result = pd.DataFrame([book_codes_dict], index=[key])
+                fin_data = pd.concat([fin_data, result])
+        fin_data = fin_data.sort_index(axis=0)
+    else:
+        pass
     return fin_data
 
 def days_sales_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:

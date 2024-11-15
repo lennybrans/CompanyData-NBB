@@ -6,10 +6,7 @@ dictionary = {}
 
 for company in list_of_companies:
     company_id = cd.CompanyData(company)
-    try:
-        company_references = company_id.fetch_references()
-    except:
-        continue
+    company_references = company_id.fetch_references()
     company_data = company_id.fetch_data(company_references)
     dictionary[company] = company_data
 
