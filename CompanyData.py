@@ -180,6 +180,7 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
             value, 
             record_path=['Rubrics'], 
             meta=[
+                'EnterpriseName',
                 'ReferenceNumber',
                 ['Span', 'ExerciseDates.startDate'],
                 ['Span', 'ExerciseDates.endDate']]
@@ -205,7 +206,8 @@ def fetch_fin_data(company_data, period='N'):
                     book_codes_dict[k] = float(df.loc[v, "Value"])
                 else:
                     book_codes_dict[k] = int(0)
-        
+            
+            book_codes_dict['EnterpriseName'] = df['EnterpriseName'].iloc[0]
             book_codes_dict['StartDate'] = df['Span.ExerciseDates.startDate'].iloc[0]
             book_codes_dict['EndDate'] = df['Span.ExerciseDates.endDate'].iloc[0]
             result = pd.DataFrame([book_codes_dict], index=[key])
@@ -377,10 +379,10 @@ def ccc(financial_data: pd.DataFrame) -> pd.DataFrame:
     """
     Returns ccc.
     """
-    dso = financial_data.DSO
-    dpo = financial_data.DPO
-    dio_crude = financial_data.DIO_crude
-    dio_finished = financial_data.DIO_finished
+    dso = days_sales_outstanding(financial_data)
+    dpo = days_payables_outstanding(financial_data)
+    dio_crude = inventory_cycle_crude(financial_data)
+    dio_finished = inventory_cycle_finished(financial_data)
     ccc = dso + (dio_crude + dio_finished) - dpo
     financial_data['ccc'] = ccc
     return financial_data
