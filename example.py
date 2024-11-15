@@ -1,11 +1,11 @@
 import CompanyData as cd
 
-company =cd.CompanyData("0428003392") # BE 0428.003.392
+company =cd.CompanyData("0627.792.215") # BE 0428.003.392
 
 # Reference API call
 company_references = company.fetch_references(year_span=2)
 company_dict = company.fetch_data(company_references)
-company_fin = cd.fetch_fin_data(company_dict)
+company_fin = cd.fetch_fin_data(company_dict, ['N', 'NM1'])
 print(company_fin)
 
 # # Data API call

@@ -202,18 +202,21 @@ def fetch_fin_data(company_data: dict, period='N') -> pd.DataFrame:
         for symbol in period:
             for key, value in financial_dict.items():
                 df = value[value['Period'] == symbol].set_index('Code')
-                book_codes_dict = dct.bookcodes_dictionary.copy()
-                for k, v in book_codes_dict.items():
-                    if v in df.index:
-                        book_codes_dict[k] = float(df.loc[v, "Value"])
-                    else:
-                        book_codes_dict[k] = int(0)
-                
-                book_codes_dict['EnterpriseName'] = df['EnterpriseName'].iloc[0]
-                book_codes_dict['StartDate'] = df['Span.ExerciseDates.startDate'].iloc[0]
-                book_codes_dict['EndDate'] = df['Span.ExerciseDates.endDate'].iloc[0]
-                result = pd.DataFrame([book_codes_dict], index=[key])
-                fin_data = pd.concat([fin_data, result])
+                if not df.empty:
+                    book_codes_dict = dct.bookcodes_dictionary.copy()
+                    for k, v in book_codes_dict.items():
+                        if v in df.index:
+                            book_codes_dict[k] = float(df.loc[v, "Value"])
+                        else:
+                            book_codes_dict[k] = int(0)
+                    
+                    book_codes_dict['EnterpriseName'] = df['EnterpriseName'].iloc[0]
+                    book_codes_dict['StartDate'] = df['Span.ExerciseDates.startDate'].iloc[0]
+                    book_codes_dict['EndDate'] = df['Span.ExerciseDates.endDate'].iloc[0]
+                    result = pd.DataFrame([book_codes_dict], index=[key])
+                    fin_data = pd.concat([fin_data, result])
+                else:
+                    pass
         fin_data = fin_data.sort_index(axis=0)
     else:
         pass
