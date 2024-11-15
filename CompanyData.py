@@ -68,7 +68,7 @@ class CompanyData:
             api_answer = response.content
             return api_answer
         except requests.exceptions.HTTPError as http_err:
-            return http_err
+            raise http_err
         except requests.exceptions.RequestException as req_err:
             print(f"This is a Request Error: {req_err}")
             return req_err
@@ -123,11 +123,7 @@ class CompanyData:
         
         # In web tool, use return error, otherwise raise the error
         if isinstance(api_answer, Exception):
-            no_submission = ValueError(
-                "No submission found in NBB database. "
-                "Please, double check company ID.")
-            print(api_answer)
-            return no_submission
+            raise api_answer
         
         df_of_references = pd.json_normalize(json.loads(api_answer))
         df_of_references = self._handle_df_of_references(df_of_references)
