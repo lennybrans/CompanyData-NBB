@@ -1,18 +1,18 @@
 ## What is it?
 
-**CompanyData-NBB** is designed as a class to make an API call to the webservices of the National Bank of Belgium and to retrieve financial statements from Belgian companies and all others who are obligated to submit their results. As input it needs a KBO-number.
+**CompanyData-NBB** is designed as a class/module to make an API call to the webservices of the National Bank of Belgium and to retrieve financial statements from Belgian companies and all others who are obligated to submit their results. As input it needs a company ID (KBO-number).
 
-The script can only retrieve information from those companies that are subjected to make their financial information publically available and is, for the moment, limited to handle JSONXBRL files only. Later it should be able to handle the XBRL information that can be returned from the NBB. Though XBRL data does not seem to be as easy to convert in a workable way (let me know if you do know).<br>
-De facto this means only the last two tax returns can be retrieved (I believe starting 2022) but up to three years of data (since a tax return depicts data of the current (N) and last year (NM1)).
+The script can only retrieve information from those companies that are subjected to make their financial information publically available and is, for the moment, limited to handle only JSONXBRL files. Later, it should be able to handle the XBRL information that can be returned from the NBB. Though XBRL data does not seem to be as easy to convert in a workable way (let me know if you do know).<br>
+De facto, this means only the last two tax returns can be retrieved (I believe starting 2022) but up to three years of data (since a tax return depicts data of the current (N) and last year (NM1)).
 
-In order to work, one has to apply for an [API key from the NBB](nbb-link).
-The key is hidden as a `.env` file under the variable `NBB_CBSO_sub_key`.
+In order to work, the user will have to apply for an [API key from the NBB](nbb-link).
+Then hide the key as a `.env` file under the variable `NBB_CBSO_sub_key`.
 
 [nbb-link]: https://www.nbb.be/en/central-balance-sheet-office/consultation-data/webservices
 
 
-**Addition**: An upcoming extension will be to work-in data from the 'Kruispuntdatabank voor Ondernemingen' and look for similar companies.
-Though additional data needs to be downloaded [here][kbo-link].
+**Addition**: An upcoming extension will be able to work-in data from the 'Kruispuntdatabank voor Ondernemingen' and look for similar companies.
+Though additional data needs to be downloaded [here][kbo-link] because of the file size.
 
 [kbo-link]: https://economie.fgov.be/nl/themas/ondernemingen/kruispuntbank-van/diensten-voor-iedereen/hergebruik-van-publieke/kruispuntbank-van-0
 
