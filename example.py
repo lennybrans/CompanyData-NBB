@@ -1,6 +1,6 @@
 import CompanyData as cd
 
-company =cd.CompanyData("0627.792.215") # BE 0428.003.392
+company =cd.CompanyData("0627.792.215") # BE 0428.003.392 or BE 0627.792.215
 
 # Reference API call
 company_references = company.fetch_references(year_span=2)
