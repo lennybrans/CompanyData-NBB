@@ -37,7 +37,7 @@ class CompanyData:
         """
         Returns an API compatible URL based on input.
         Default database is 'authentic'. Other options are 'extracts' and 
-        'improved' but the function is not yet adjusted to handle this.
+        'improved' but the function is not yet adjusted to process this.
         """
         environment = "https://ws.cbso.nbb.be/"
         database = "authentic/"
@@ -79,7 +79,9 @@ class CompanyData:
 # Needs an update: 'Geconsolideerde Jaarrekening' is not yet available via API
 # but might be in the future. Unfortunately, the 'ModelType' is not a unique 
 # identifier across companies/industries to select the 'Jaarrekening'.
-    def _handle_df_of_references(self, df_of_references):
+    def _handle_df_of_references(
+        self,
+        df_of_references: pd.DataFrame) -> pd.DataFrame:
         """
         Function filters the DataFrame of References.
         - Selects 'AccountingDataURL' colum, which only is available for 
@@ -110,7 +112,7 @@ class CompanyData:
     
     def fetch_references(self, 
                          year_span=1, 
-                         accept_reference="application/json"):
+                         accept_reference="application/json") -> pd.DataFrame:
         """
         Function makes an API call for references and returns a DataFrame with 
         the references from the NBB for one specific company ID (KBO-nummer). 
@@ -130,19 +132,19 @@ class CompanyData:
         return df_of_references
         
     def fetch_data(self, 
-                   reference_variable: pd.DataFrame, 
+                   reference_df: pd.DataFrame, 
                    accept_submission='application/x.jsonxbrl') -> dict:
         """
-        Function makes an API call for data. Add variable containing the 
-        reference list or vector it.
-        Returns the data in a dictionary. The amount of keys in the dictionary 
-        is equal to the amount of years requested in the references.
+        Function makes an API call for company data. Returns company data in
+        dictionary. 
+        The amount of keys in the dictionary is equal to the amount of years 
+        requested in 'fetch_references()'.
         Currently, it does not accept XBRL format.
         """
         data_dictionary = {}
-        if not reference_variable.empty:
-            reference_URLs = reference_variable.AccountingDataURL
-            dates_dict = (reference_variable.set_index('ReferenceNumber')
+        if not reference_df.empty:
+            reference_URLs = reference_df['AccountingDataURL']
+            dates_dict = (reference_df.set_index('ReferenceNumber')
                         [['ExerciseDates.startDate', 'ExerciseDates.endDate']]
                         .to_dict('index'))
             
@@ -154,7 +156,6 @@ class CompanyData:
                         )
                     data_dict = json.loads(data)
                     reference_number = data_dict.get('ReferenceNumber')
-                    # data_dict.update(dates_dict) ?
                     data_dict['Span'] = dates_dict[reference_number]
                     data_dictionary[reference_number] = data_dict
                 except Exception as e:
@@ -171,12 +172,11 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
     Function returns a dictionary with Reference Number as key and a DataFrame 
     as value.
     """
+    financial_dict = {}
     if company_data_dict:
-        financial_dict = {}
-        
-        for key, value in company_data_dict.items():
+        for reference_key, rubrics_dict in company_data_dict.items():
             df = pd.json_normalize(
-                value, 
+                rubrics_dict, 
                 record_path=['Rubrics'], 
                 meta=[
                     'EnterpriseName',
@@ -184,43 +184,51 @@ def _extract_fin_data(company_data_dict: dict) -> dict:
                     ['Span', 'ExerciseDates.startDate'],
                     ['Span', 'ExerciseDates.endDate']]
                 )
-            financial_dict[key] = df
+            financial_dict[reference_key] = df
     else:
-        financial_dict = {} # If 404 error, alternative way?
+        pass # If 404 error, alternative way?
     return financial_dict
 
 def fetch_fin_data(company_data: dict, period='N') -> pd.DataFrame:
     """
     Function returns a DataFrame with financial data. The 'N' argument selects
     the data for the current year. It is also possible to select the data from
-    the previous year by changing it to 'NM1'.
+    the previous year by changing it to 'NM1' or both by introducing them in a
+    list.
     """
-    fin_data = pd.DataFrame()
+    fin_data_df = pd.DataFrame()
     financial_dict = _extract_fin_data(company_data)
     
     if financial_dict:
         for symbol in period:
-            for key, value in financial_dict.items():
-                df = value[value['Period'] == symbol].set_index('Code')
-                if not df.empty:
+            for reference_key, df in financial_dict.items():
+                sliced_df = df[df['Period'] == symbol].set_index('Code')
+                if not sliced_df.empty:
                     book_codes_dict = dct.bookcodes_dictionary.copy()
-                    for k, v in book_codes_dict.items():
-                        if v in df.index:
-                            book_codes_dict[k] = float(df.loc[v, "Value"])
+                    for label, acc_code in book_codes_dict.items():
+                        if acc_code in sliced_df.index:
+                            book_codes_dict[label] = float(
+                                sliced_df.loc[acc_code, "Value"])
                         else:
-                            book_codes_dict[k] = int(0)
+                            book_codes_dict[label] = int(0)
                     
-                    book_codes_dict['EnterpriseName'] = df['EnterpriseName'].iloc[0]
-                    book_codes_dict['StartDate'] = df['Span.ExerciseDates.startDate'].iloc[0]
-                    book_codes_dict['EndDate'] = df['Span.ExerciseDates.endDate'].iloc[0]
-                    result = pd.DataFrame([book_codes_dict], index=[key])
-                    fin_data = pd.concat([fin_data, result])
+                    book_codes_dict['EnterpriseName'] = sliced_df[
+                        'EnterpriseName'].iloc[0]
+                    book_codes_dict['StartDate'] = sliced_df[
+                        'Span.ExerciseDates.startDate'].iloc[0]
+                    book_codes_dict['EndDate'] = sliced_df[
+                        'Span.ExerciseDates.endDate'].iloc[0]
+                    book_codes_dict['Symbol'] = symbol
+                    result = pd.DataFrame(
+                        [book_codes_dict],
+                        index=[reference_key])
+                    fin_data_df = pd.concat([fin_data_df, result])
                 else:
                     pass
-        fin_data = fin_data.sort_index(axis=0)
+        fin_data_df = fin_data_df.sort_index(axis=0)
     else:
         pass
-    return fin_data
+    return fin_data_df
 
 def days_sales_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
     '''
