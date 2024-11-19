@@ -1,11 +1,10 @@
 import CompanyData as cd
 
-list_of_companies = ['BE 0448.746.645', '0473416418']
+list_of_companies = ['0563455578','BE 0448.746.645', '0473416418']
 
 dictionary = {}
 
 for company in list_of_companies:
-    key = company
     company_id = cd.CompanyData(company)
     company_references = company_id.fetch_references()
     company_data = company_id.fetch_data(company_references)
