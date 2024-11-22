@@ -6,4 +6,4 @@ company =cd.CompanyData("0428.003.392") # BE 0428.003.392 or BE 0627.792.215
 company_references = company.fetch_references(year_span=2)
 company_dict = company.fetch_data(company_references)
 company_fin = cd.fetch_fin_data(company_dict, ['N', 'NM1'])
-print(company_fin)
+print(company_dict)
