@@ -167,6 +167,23 @@ class CompanyData:
 
 ## Functions to manipulate data
 # Under construction
+def format_id(company_id: str, prefix=False) -> str:
+    '''
+    Returns CompanyID in required format.
+    '''
+    company_id = company_id.strip()
+    cleaned_input = re.sub(r"\D", '', company_id)
+    if len(cleaned_input) in [10, 11]:
+        if prefix:
+            part1 = cleaned_input[:4]
+            part2 = cleaned_input[4:7]
+            part3 = cleaned_input[7:]
+            return f"BE {part1}.{part2}.{part3}"
+        else:
+            return cleaned_input
+    else:
+        raise ValueError("Wrong input - Length mismatch")
+    
 def _extract_fin_data(company_data_dict: dict) -> dict:
     """
     Function returns a dictionary with Reference Number as key and a DataFrame 
