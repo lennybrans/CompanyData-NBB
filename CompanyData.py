@@ -711,3 +711,17 @@ def ebit_da(financial_data: pd.DataFrame, calc='ebit') -> pd.DataFrame:
     if calc == 'ebitda':
         financial_data['ebitda'] = ebitda
         return financial_data
+    
+def excel_export(company_dict, filename, period='N'):
+    """
+    Export to excel. Filename has to provide path.
+    """
+    df = fetch_fin_data(company_dict, period)
+    df1, df2, df3, df4, failed = fetch_quantative_data(company_dict)
+    with pd.ExcelWriter(filename) as writer:
+        df1.to_excel(writer, sheet_name='Company Info')
+        df.to_excel(writer, sheet_name='Fin. Data')
+        df2.to_excel(writer, sheet_name='Admin Data')
+        df3.to_excel(writer, sheet_name='Part. Interest')
+        df4.to_excel(writer, sheet_name='Shareholders')
+    print(failed)
