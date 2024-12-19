@@ -1,3 +1,28 @@
+"""
+This module offers possibilities to handle API data from the NBB in various ways
+and to the user's needs. The Class CompanyData encapsulates the two-step 
+procedure in order to retrieve financial data. 
+
+First step:
+    Send URI containing unique Company Identifier, receive a reference table
+    containing all filings for this company, and providing unique URI's for 
+    retrieving a unique filing.
+
+Second step:
+    From the last filing up, it is possible to request more than one filing for
+    a company. The result is a dictionary containing key-value pair, 
+    i.e {unique_reference: data_dict}
+
+Several functions are available for use in Python, with Pandas or an export 
+function to Excel.
+
+Data that can be retrieved:
+    - Financial Data.
+    - Administrator Data, if provided.
+    - Participating Interests, if provided.
+    - Shaerholders, if provided.
+"""
+
 import uuid
 import re
 import json
@@ -35,7 +60,7 @@ class CompanyData:
         else:
             raise ValueError("Wrong input - Length mismatch")
                
-    def _reference_url_creation(self) -> str:
+    def _reference_uri_creation(self) -> str:
         """
         Return an API compatible URL based on input.
 
@@ -121,7 +146,7 @@ class CompanyData:
         Return DataFrame. 
         """
         api_answer = self._api_call(
-            self._reference_url_creation(), 
+            self._reference_uri_creation(), 
             accept_reference)
         
         if isinstance(api_answer, Exception):
