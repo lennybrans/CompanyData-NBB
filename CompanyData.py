@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 import requests
+import fnmatch
 
 import dictionaries as dct
 
@@ -15,17 +16,18 @@ api_key = os.getenv('NBB_CBSO_sub_key')
 class CompanyData:
     def __init__(self, company_number: str):
         """
-        Initialize with a list of company numbers.
+        Initialize with a Company ID.
         """
         self.company_number = self._clean_input(company_number)
 
     def _clean_input(self, user_input: str) -> str:
-        '''
-        Returns only-numeric string or raises a ValueError.
-        Removes non-numeric characters. 
-        Important: it checks the numeric correct input, not whether the 
+        """
+        Return only-numeric string or raise a ValueError.
+        Remove non-numeric characters.
+        
+        Important: function checks the numeric correct input, not whether the 
         company ID is in the databank.
-        '''
+        """
         user_input = user_input.strip()
         cleaned_input = re.sub(r"\D", '', user_input)
         if len(cleaned_input) in [10, 11]:
@@ -33,9 +35,10 @@ class CompanyData:
         else:
             raise ValueError("Wrong input - Length mismatch")
                
-    def _reference_url_creation(self):
+    def _reference_url_creation(self) -> str:
         """
-        Returns an API compatible URL based on input.
+        Return an API compatible URL based on input.
+
         Default database is 'authentic'. Other options are 'extracts' and 
         'improved' but the function is not yet adjusted to process this.
         """
@@ -49,9 +52,8 @@ class CompanyData:
         return url
     
     def _api_call(self, url: str, accept_form: str) -> bytes:
-        """
-        Function makes API call for references list. 
-        Return bytes object or HTTP Error Code.
+        """ 
+        Return API response (bytes object) or HTTP Error Code.
         """
         uuid_code = str(uuid.uuid4())
         hdr = {
@@ -80,14 +82,15 @@ class CompanyData:
 # but might be in the future. Unfortunately, the 'ModelType' is not a unique 
 # identifier across companies/industries to select the 'Jaarrekening'.
     def _handle_df_of_references(
-        self,
-        df_of_references: pd.DataFrame) -> pd.DataFrame:
+            self, 
+            df_of_references: pd.DataFrame) -> pd.DataFrame:
         """
-        Function filters the DataFrame of References.
-        - Selects 'AccountingDataURL' colum, which only is available for 
-          'Jaarrekening' and not for 'Geconsolideerde Jaarrekening'. 
-        - Compares bookyears and selects the latest submission, in case 
-          a correction was submitted.
+        Return filtered DataFrame.
+
+        Select 'AccountingDataURL' column, only available for 'Jaarrekening' and
+        not for 'Geconsolideerde Jaarrekening'. 
+        Compare bookyears and select latest filing, in case correction was 
+        submitted.
         """
         df_of_references.sort_values(
             ['ExerciseDates.endDate', 'DepositDate'],
@@ -110,18 +113,16 @@ class CompanyData:
 
         return df_of_references
     
-    def fetch_references(self, 
-                         year_span=1, 
-                         accept_reference="application/json") -> pd.DataFrame:
+    def fetch_references(
+            self, 
+            year_span=1, 
+            accept_reference="application/json") -> pd.DataFrame:
         """
-        Function makes an API call for references and returns a DataFrame with 
-        the references from the NBB for one specific company ID (KBO-nummer). 
-        Default year span is one year (last submission).
+        Return DataFrame. 
         """
         api_answer = self._api_call(
             self._reference_url_creation(), 
-            accept_reference,
-            )
+            accept_reference)
         
         if isinstance(api_answer, Exception):
             return pd.DataFrame() # If 404 error, alternative way?
@@ -131,15 +132,16 @@ class CompanyData:
         df_of_references = df_of_references.tail(year_span)
         return df_of_references
         
-    def fetch_data(self, 
-                   reference_df: pd.DataFrame, 
-                   accept_submission='application/x.jsonxbrl') -> dict:
+    def fetch_data(
+            self, 
+            reference_df: pd.DataFrame, 
+            accept_submission='application/x.jsonxbrl') -> dict:
         """
-        Function makes an API call for company data. Returns company data in
-        dictionary. 
+        Make API call based on requested years and return dictionary. 
+
         The amount of keys in the dictionary is equal to the amount of years 
-        requested in 'fetch_references()'.
-        Currently, it does not accept XBRL format.
+        requested in 'fetch_references()'. Currently, it does not accept XBRL 
+        format.
         """
         data_dictionary = {}
         if not reference_df.empty:
@@ -169,7 +171,7 @@ class CompanyData:
 # Under construction
 def format_id(company_id: str, prefix=False) -> str:
     '''
-    Returns CompanyID in required format.
+    Return CompanyID in required format.
     '''
     company_id = company_id.strip()
     cleaned_input = re.sub(r"\D", '', company_id)
@@ -183,14 +185,254 @@ def format_id(company_id: str, prefix=False) -> str:
             return cleaned_input
     else:
         raise ValueError("Wrong input - Length mismatch")
+
+def _last_filing(company_dict: dict) -> str:
+    """
+    Return latest reference.
+    """
+    latest_year = max(
+        [str(key.split(sep='-')[0]) for key in company_dict.keys()]
+        )
+    last_reference = fnmatch.filter(list(company_dict.keys()), 
+                                      str(latest_year) + '*')[0]
+    return last_reference
+
+def _fetch_address(address_dict: dict) -> str:
+    """
+    Return string.
+    """
+    address_str = ''
+    of_interest = ['Street', 'Number', 'Box', 'City', 'Country']
+    for k, v in address_dict.items():
+        try:
+            if (v is not None) and (k in of_interest):
+                address_str += f'{str(v.replace('pcd:m', '')\
+                                       .replace('cty:m', ''))} '
+        except:
+            address_str = 'Address dictionary not found or got error'
+    return address_str.strip()
+
+def _fetch_legal_form(legal_form_dict: dict) -> str:
+    """
+    """
+    legal_form_str = ''
+    for v in legal_form_dict.values():
+        try:
+            if v is not None:
+                legal_form_str += f'{str(v.replace('lgf:m', ''))} '
+        except:
+            legal_form_str = 'error in legal form dictionary or not found'
+    return legal_form_str.strip()
+
+def _fetch_mandate(mandate_dct: dict) -> str:
+    """
+    Return string.
+    """
+    mandate_str = f'{mandate_dct.get('FunctionMandate')\
+                     .replace('fct:m', 'FunctionCode ')}, '
+    mandate_str += f'from {mandate_dct.get('MandateDates').get('StartDate', 'NA')} '
+    mandate_str += f'until {mandate_dct.get('MandateDates').get('EndDate', 'NA')}'
+    return mandate_str.strip()
+
+def _fetch_representative(rep_dict: dict) -> str:
+    """
+    Return name representative
+    """
+    rep_str = f'{rep_dict.get('FirstName').title()} '
+    rep_str += f'{rep_dict.get('LastName').title()}'
+    return rep_str.strip()
+
+def _fetch_administrators(admin_dict: dict) -> dict:
+    """
+    Get values from nested dict-list to flat dict.
+    """
+    representatives = []
+    rep_address = []
+    entity = []
+    entity_id = []
+    entity_address = []
+    mandate = []
+
+    for typeOfAdmin, admin_lst in admin_dict.items():
+        if (typeOfAdmin == 'LegalPersons') and admin_lst: 
+            for item in admin_lst:
+                dimension = len(item['Representatives'])
+                for rep_dct in item['Representatives']:
+                    representatives.append(_fetch_representative(rep_dct))
+                    rep_address.append(_fetch_address(rep_dct['Address']))
+                entity += [item['Entity'].get('Name') for x in range(0, dimension)]
+                entity_id += [item['Entity'].get('Identifier') for x in range(0, dimension)]
+                entity_address += [_fetch_address(item['Entity'].get('Address')) for x in range(0, dimension)]
+                if item['Mandates']:
+                    for mandate_dct in item['Mandates']:
+                        mandate.append(_fetch_mandate(mandate_dct))  
+                else:
+                    mandate.append('NA')
+
+        if (typeOfAdmin == 'NaturalPersons') and admin_lst:
+            for item in admin_lst:
+                representatives.append(_fetch_representative(item['Person']))
+                rep_address.append(_fetch_address(item['Person']['Address']))
+                entity.append('NA')
+                entity_id.append('NA')
+                entity_address.append('NA')
+                if item['Mandates']:
+                    for mandate_dct in item['Mandates']:
+                        mandate.append(_fetch_mandate(mandate_dct))  
+                else:
+                    mandate.append('NA') 
     
+    admin_dct = {
+        'Representatives': representatives,
+        'Rep. Address': rep_address,
+        'Entity': entity,
+        'Entity ID': entity_id,
+        'Entity Address': entity_address,
+        'Mandate': mandate
+    }
+    return admin_dct
+
+def _fetch_participating_interests(pi_list: list) -> dict:
+    """
+    Get values from nested dict-list to flat dict.
+    """
+    name_participant = []
+    entity_id = []
+    entity_address = []
+    account_date = []
+    currency = []
+    equity = []
+    net_result = []
+    interest_held_line = []
+    type_of_share = []
+    number_of_shares = []
+    percentage_directly_held = []
+    percentage_subsidiaries = []
+
+    for dictionary in pi_list:
+        if dictionary['Entity']:
+            dimension = len(dictionary['ParticipatingInterestHeld'])
+            name_participant += [
+                dictionary['Entity'].get('Name') for x in range(0, dimension)]
+            entity_id += [
+                dictionary['Entity'].get('Identifier') for x in range(0, dimension)]
+            entity_address += [_fetch_address(
+                dictionary['Entity'].get('Address')) for x in range(0, dimension)]
+            account_date += [
+                dictionary['AccountDate'] for x in range(0, dimension)]
+            currency += [
+                dictionary['Currency'] for x in range(0, dimension)]
+            equity += [
+                dictionary['Equity'] for x in range(0, dimension)]
+            net_result += [
+                dictionary['NetResult'] for x in range(0, dimension)]
+            for item in dictionary['ParticipatingInterestHeld']:
+                interest_held_line += [
+                    item.get('Line') for x in range(0, dimension)]
+                type_of_share += [
+                    item.get('Nature') for x in range(0, dimension)]
+                number_of_shares += [
+                    item.get('Number') for x in range(0, dimension)]
+                percentage_directly_held += [
+                    item.get('PercentageDirectlyHeld') for x in range(0, dimension)]
+                percentage_subsidiaries += [
+                    item.get('PercentageSubsidiaries') for x in range(0, dimension)]
+    
+    pi_dct = {
+        'Participant Name':name_participant,
+        'Entity ID': entity_id,
+        'Entity Address': entity_address,
+        'Account Date': account_date,
+        'Currency': [x.replace('ccy:m', '') for x in currency],
+        'Equity': equity,
+        'Net Result': net_result,
+        'Line': interest_held_line,
+        'Type': type_of_share,
+        'Number of Shares': number_of_shares,
+        '% directly held': percentage_directly_held,
+        '% subsidiaries': percentage_subsidiaries
+    }
+    return pi_dct
+
+def _fetch_shareholders(shareholder_dict: dict, last_filing) -> dict:
+    if shareholder_dict['EntityShareHolders']:
+        print(f'Entity Shareholders found in {last_filing} update code')
+    elif shareholder_dict['IndividualShareHolders']:
+        print(f'Individual Shareholders found in {last_filing}, update code')
+    else:
+        raise ValueError('Not found')
+
+def _fetch_company_info(company_dict: dict) -> dict:
+    """
+    Get info to dict.
+    """
+    company_info_dct = {
+        'ReferenceNumber':[company_dict.get('ReferenceNumber', 'No Reference found')],
+        'EnterpriseName':[company_dict.get('EnterpriseName', 'No Enterprisename found')],
+        'Address': [_fetch_address(company_dict['Address'])],
+        'Legal Form':[_fetch_legal_form(company_dict['LegalForm'])],
+    }
+    return company_info_dct
+
+def fetch_quantative_data(company_dict: dict) -> pd.DataFrame:
+    """
+    Return four DataFrames and failed list.
+    """
+    last_reference = _last_filing(company_dict)
+    failed = []
+    
+    try:
+        company_df = pd.DataFrame(
+            _fetch_company_info(
+                company_dict[last_reference]
+            )
+        )
+    except:
+        company_df = pd.DataFrame()
+        failed.append(f'Company Info {last_reference} not found')
+        
+    try:
+        admin_df = pd.DataFrame(
+            _fetch_administrators(
+                company_dict[last_reference]['Administrators']
+                )
+            )
+    except:
+        admin_df = pd.DataFrame()
+        failed.append(f'Administrators {last_reference} not found')
+
+    try:
+        pi_df = pd.DataFrame(
+            _fetch_participating_interests(
+                company_dict[last_reference]['ParticipatingInterests']
+            )
+        )
+    except:
+        pi_df = pd.DataFrame()
+        failed.append(f'Participating Interests {last_reference} not found')
+
+    try:
+        shareholders_df = pd.DataFrame(
+            _fetch_shareholders(
+                company_dict[last_reference]['Shareholders'],
+                last_reference
+            )
+        )
+    except:
+        shareholders_df = pd.DataFrame()
+        failed.append(f'Shareholders {last_reference} not found')
+
+        
+    # return write to excel? add parameter
+    return company_df, admin_df, pi_df, shareholders_df, failed
+
 def _extract_fin_data(company_data_dict: dict) -> dict:
     """
     Function returns a dictionary with Reference Number as key and a DataFrame 
     as value.
     """
     financial_dict = {}
-    if company_data_dict:
+    if company_data_dict: # change to try-except
         for reference_key, rubrics_dict in company_data_dict.items():
             df = pd.json_normalize(
                 rubrics_dict, 
@@ -216,7 +458,7 @@ def fetch_fin_data(company_data: dict, period='N') -> pd.DataFrame:
     fin_data_df = pd.DataFrame()
     financial_dict = _extract_fin_data(company_data)
     
-    if financial_dict:
+    if financial_dict: #change to try-except?
         for symbol in period:
             for reference_key, df in financial_dict.items():
                 sliced_df = df[df['Period'] == symbol].set_index('Code')
