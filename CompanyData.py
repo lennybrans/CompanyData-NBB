@@ -32,6 +32,8 @@ import pandas as pd
 import requests
 import fnmatch
 
+import numpy as np # remove after testing
+
 import dictionaries as dct
 
 load_dotenv()
@@ -178,13 +180,12 @@ class CompanyData:
             for data_url in reference_URLs:
                 try:
                     data = self._api_call(
-                        url=data_url, 
-                        accept_form=accept_submission
-                        )
-                    data_dict = json.loads(data)
-                    reference_number = data_dict.get('ReferenceNumber')
-                    data_dict['Span'] = dates_dict[reference_number]
-                    data_dictionary[reference_number] = data_dict
+                                    url=data_url, 
+                                    accept_form=accept_submission)
+                    response_dict = json.loads(data)
+                    reference_number = response_dict.get('ReferenceNumber')
+                    response_dict['Span'] = dates_dict[reference_number]
+                    data_dictionary[reference_number] = response_dict
                 except Exception as e:
                     e = 'Not a JSONXBRL'
                     print(e)
@@ -451,68 +452,36 @@ def fetch_quantative_data(company_dict: dict) -> pd.DataFrame:
     # return write to excel? add parameter
     return company_df, admin_df, pi_df, shareholders_df, failed
 
-def _extract_fin_data(company_data_dict: dict) -> dict:
-    """
-    Function returns a dictionary with Reference Number as key and a DataFrame 
-    as value.
-    """
-    financial_dict = {}
-    if company_data_dict: # change to try-except
-        for reference_key, rubrics_dict in company_data_dict.items():
-            df = pd.json_normalize(
-                rubrics_dict, 
-                record_path=['Rubrics'], 
-                meta=[
-                    'EnterpriseName',
-                    'ReferenceNumber',
-                    ['Span', 'ExerciseDates.startDate'],
-                    ['Span', 'ExerciseDates.endDate']]
-                )
-            financial_dict[reference_key] = df
-    else:
-        pass # If 404 error, alternative way?
-    return financial_dict
-
-def fetch_fin_data(company_data: dict, period='N') -> pd.DataFrame:
-    """
-    Function returns a DataFrame with financial data. The 'N' argument selects
-    the data for the current year. It is also possible to select the data from
-    the previous year by changing it to 'NM1' or both by introducing them in a
-    list.
-    """
-    fin_data_df = pd.DataFrame()
-    financial_dict = _extract_fin_data(company_data)
+def fetch_fin_data(company_dict: dict, period='N'):
     
-    if financial_dict: #change to try-except?
-        for symbol in period:
-            for reference_key, df in financial_dict.items():
-                sliced_df = df[df['Period'] == symbol].set_index('Code')
-                if not sliced_df.empty:
-                    book_codes_dict = dct.bookcodes_dictionary.copy()
-                    for label, acc_code in book_codes_dict.items():
-                        if acc_code in sliced_df.index:
-                            book_codes_dict[label] = float(
-                                sliced_df.loc[acc_code, "Value"])
-                        else:
-                            book_codes_dict[label] = int(0)
-                    
-                    book_codes_dict['EnterpriseName'] = sliced_df[
-                        'EnterpriseName'].iloc[0]
-                    book_codes_dict['StartDate'] = sliced_df[
-                        'Span.ExerciseDates.startDate'].iloc[0]
-                    book_codes_dict['EndDate'] = sliced_df[
-                        'Span.ExerciseDates.endDate'].iloc[0]
-                    book_codes_dict['Symbol'] = symbol
-                    result = pd.DataFrame(
-                        [book_codes_dict],
-                        index=[reference_key])
-                    fin_data_df = pd.concat([fin_data_df, result])
-                else:
-                    pass
-        fin_data_df = fin_data_df.sort_index(axis=0)
-    else:
-        pass
-    return fin_data_df
+    df = pd.DataFrame()
+
+    for symbol in period:
+        for k, v in company_dict.items():
+            temp_dict = {'Symbol': symbol}
+            temp_dict['Reference'] = k
+            temp_dict['EnterpriseName'] = v.get('EnterpriseName')
+            temp_dict['StartDate'] = v['Span'].get('ExerciseDates.startDate')
+            temp_dict['EndDate'] = v['Span'].get('ExerciseDates.endDate')
+            
+            for item in v['Rubrics']:
+                if item['Period']==symbol:
+                    temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))      
+                
+            df = pd.concat([
+                df, 
+                pd.DataFrame(data=temp_dict, 
+                             index=[0])
+                             ], ignore_index=True, sort=False)
+    
+    
+    df.rename(mapper=dct.reversed_dict, axis=1, inplace=True)
+    df.sort_values(['StartDate', 'Symbol'], 
+                   ascending=[False, True],
+                   inplace=True)
+    df.set_index('Reference', drop=True, inplace=True)
+    df.fillna(0, inplace=True)
+    return df
 
 def days_sales_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
     '''
@@ -750,3 +719,68 @@ def excel_export(company_dict, filename, period='N'):
         df3.to_excel(writer, sheet_name='Part. Interest')
         df4.to_excel(writer, sheet_name='Shareholders')
     print(failed)
+
+
+
+# def old_extract_fin_data(company_dict: dict) -> dict:
+#     """
+#     Function returns a dictionary with Reference Number as key and a DataFrame 
+#     as value.
+#     """
+#     financial_dict = {}
+#     try:    
+#         for reference, rubrics_lst in company_dict.items():
+#             df = pd.json_normalize(
+#                 rubrics_lst, 
+#                 record_path=['Rubrics'], 
+#                 meta=[
+#                     'EnterpriseName',
+#                     'ReferenceNumber',
+#                     ['Span', 'ExerciseDates.startDate'],
+#                     ['Span', 'ExerciseDates.endDate']]
+#                 )
+#             financial_dict[reference] = df
+#     except:
+#         raise ValueError('Problem in Rubrics dictionary')
+#     return financial_dict
+
+# def fetch_fin_data(company_dict: dict, period='N') -> pd.DataFrame:
+#     """
+#     Function returns a DataFrame with financial data. The 'N' argument selects
+#     the data for the current year. It is also possible to select the data from
+#     the previous year by changing it to 'NM1' or both by introducing them in a
+#     list.
+#     """
+#     financial_dict = _extract_fin_data(company_dict)
+#     fin_data_df = pd.DataFrame()
+    
+#     if financial_dict: #change to try-except?
+#         for symbol in period:
+#             for reference_key, df in financial_dict.items():
+#                 sliced_df = df[df['Period'] == symbol].set_index('Code')
+#                 if not sliced_df.empty:
+#                     book_codes_dict = dct.bookcodes_dictionary.copy()
+#                     for label, acc_code in book_codes_dict.items():
+#                         if acc_code in sliced_df.index:
+#                             book_codes_dict[label] = float(
+#                                 sliced_df.loc[acc_code, "Value"])
+#                         else:
+#                             book_codes_dict[label] = np.nan # was int(0)
+                    
+#                     book_codes_dict['EnterpriseName'] = sliced_df[
+#                         'EnterpriseName'].iloc[0]
+#                     book_codes_dict['StartDate'] = sliced_df[
+#                         'Span.ExerciseDates.startDate'].iloc[0]
+#                     book_codes_dict['EndDate'] = sliced_df[
+#                         'Span.ExerciseDates.endDate'].iloc[0]
+#                     book_codes_dict['Symbol'] = symbol
+#                     result = pd.DataFrame(
+#                         [book_codes_dict],
+#                         index=[reference_key])
+#                     fin_data_df = pd.concat([fin_data_df, result])
+#                 else:
+#                     pass
+#         fin_data_df = fin_data_df.sort_index(axis=0)
+#     else:
+#         pass
+#     return fin_data_df
