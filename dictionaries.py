@@ -637,7 +637,7 @@ csv_qual_dict = {
     'Approval':'General assembly date',
     }
 
-new_dict = {
+reversed_dict = {
     "20":"OPRICHTINGSKOSTEN (20)",
     "21/28":"VASTE ACTIVA (21/28)",
     "21":"Immateriële vaste activa (21)",
