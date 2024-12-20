@@ -32,8 +32,6 @@ import pandas as pd
 import requests
 import fnmatch
 
-import numpy as np # remove after testing
-
 import dictionaries as dct
 
 load_dotenv()
@@ -719,68 +717,3 @@ def excel_export(company_dict, filename, period='N'):
         df3.to_excel(writer, sheet_name='Part. Interest')
         df4.to_excel(writer, sheet_name='Shareholders')
     print(failed)
-
-
-
-# def old_extract_fin_data(company_dict: dict) -> dict:
-#     """
-#     Function returns a dictionary with Reference Number as key and a DataFrame 
-#     as value.
-#     """
-#     financial_dict = {}
-#     try:    
-#         for reference, rubrics_lst in company_dict.items():
-#             df = pd.json_normalize(
-#                 rubrics_lst, 
-#                 record_path=['Rubrics'], 
-#                 meta=[
-#                     'EnterpriseName',
-#                     'ReferenceNumber',
-#                     ['Span', 'ExerciseDates.startDate'],
-#                     ['Span', 'ExerciseDates.endDate']]
-#                 )
-#             financial_dict[reference] = df
-#     except:
-#         raise ValueError('Problem in Rubrics dictionary')
-#     return financial_dict
-
-# def fetch_fin_data(company_dict: dict, period='N') -> pd.DataFrame:
-#     """
-#     Function returns a DataFrame with financial data. The 'N' argument selects
-#     the data for the current year. It is also possible to select the data from
-#     the previous year by changing it to 'NM1' or both by introducing them in a
-#     list.
-#     """
-#     financial_dict = _extract_fin_data(company_dict)
-#     fin_data_df = pd.DataFrame()
-    
-#     if financial_dict: #change to try-except?
-#         for symbol in period:
-#             for reference_key, df in financial_dict.items():
-#                 sliced_df = df[df['Period'] == symbol].set_index('Code')
-#                 if not sliced_df.empty:
-#                     book_codes_dict = dct.bookcodes_dictionary.copy()
-#                     for label, acc_code in book_codes_dict.items():
-#                         if acc_code in sliced_df.index:
-#                             book_codes_dict[label] = float(
-#                                 sliced_df.loc[acc_code, "Value"])
-#                         else:
-#                             book_codes_dict[label] = np.nan # was int(0)
-                    
-#                     book_codes_dict['EnterpriseName'] = sliced_df[
-#                         'EnterpriseName'].iloc[0]
-#                     book_codes_dict['StartDate'] = sliced_df[
-#                         'Span.ExerciseDates.startDate'].iloc[0]
-#                     book_codes_dict['EndDate'] = sliced_df[
-#                         'Span.ExerciseDates.endDate'].iloc[0]
-#                     book_codes_dict['Symbol'] = symbol
-#                     result = pd.DataFrame(
-#                         [book_codes_dict],
-#                         index=[reference_key])
-#                     fin_data_df = pd.concat([fin_data_df, result])
-#                 else:
-#                     pass
-#         fin_data_df = fin_data_df.sort_index(axis=0)
-#     else:
-#         pass
-#     return fin_data_df
