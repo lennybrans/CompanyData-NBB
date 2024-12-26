@@ -31,6 +31,7 @@ from dotenv import load_dotenv
 import pandas as pd
 import requests
 import fnmatch
+from datetime import datetime
 
 import dictionaries as dct
 
@@ -450,8 +451,19 @@ def fetch_quantative_data(company_dict: dict) -> pd.DataFrame:
     # return write to excel? add parameter
     return company_df, admin_df, pi_df, shareholders_df, failed
 
+def _period_check(temp_dict: dict):
+    begin = datetime.strptime(temp_dict.get('StartDate')\
+                              .replace('-','/'), "%Y/%m/%d")
+    end = datetime.strptime(temp_dict.get('EndDate')\
+                            .replace('-','/'), "%Y/%m/%d")
+
+    if (end - begin).days >= 362:
+        return True
+    else:
+        return False
+
 def fetch_fin_data(company_dict: dict, period='N'):
-    
+
     df = pd.DataFrame()
 
     for symbol in period:
@@ -464,8 +476,10 @@ def fetch_fin_data(company_dict: dict, period='N'):
             
             for item in v['Rubrics']:
                 if item['Period']==symbol:
-                    temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))      
-                
+                    temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))
+
+            inventory_cycle_crude(temp_dict) 
+
             df = pd.concat([
                 df, 
                 pd.DataFrame(data=temp_dict, 
@@ -481,29 +495,40 @@ def fetch_fin_data(company_dict: dict, period='N'):
     df.fillna(0, inplace=True)
     return df
 
-def days_sales_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
+def excel_export(company_dict, filename, period='N'):
+    """
+    Export to excel. Filename has to provide path.
+    """
+    df = fetch_fin_data(company_dict, period)
+    df1, df2, df3, df4, failed = fetch_quantative_data(company_dict)
+    with pd.ExcelWriter(filename) as writer:
+        df1.to_excel(writer, sheet_name='Company Info')
+        df.to_excel(writer, sheet_name='Fin. Data')
+        df2.to_excel(writer, sheet_name='Admin Data')
+        df3.to_excel(writer, sheet_name='Part. Interest')
+        df4.to_excel(writer, sheet_name='Shareholders')
+    print(failed)
+############################# Under review ####################################
+
+def days_sales_outstanding(temp_dict: dict) -> dict:
     '''
     '''
-    handelsvorderingen = financial_data[
-        'Handelsvorderingen (40)'
-        ]
-    geendoss_handelseff = financial_data[
-        'Door de vennootschap geëndosseerde handelseffecten in omloop (9150)'
-        ]
-    omzet = financial_data[
-        'Omzet (70)'
-        ]
-    andere_bedrijfsopbr = financial_data[
-        'Andere bedrijfsopbrengsten (74)'
-        ]
-    exploit_subs = financial_data[
-        'Andere - exploitatiesubsidies en vanwege de overheid ontvangen '
-        'compenserende bedragen (740)'
-        ]
-    btw_door_vennootschap = financial_data[
-        'In rekening gebrachte belasting op de toegevoegde waarde '
-        '- door vennootschap (9146)'
-        ]
+    if not _period_check(temp_dict):
+        return temp_dict
+    
+    # numerator
+    handelsvorderingen = temp_dict.get('40', 0)
+    geendoss_handelseff = temp_dict.get('9150', 0)
+
+    # denominator
+    omzet = temp_dict.get('70', 0)
+    if omzet == 0:
+        temp_dict['DSO'] = 'Revenue (70) not given'
+        return temp_dict
+    
+    andere_bedrijfsopbr = temp_dict.get('74', 0)
+    exploit_subs = temp_dict.get('740', 0)
+    btw_door_vennootschap = temp_dict.get('9146', 0)
     
     numerator = handelsvorderingen + geendoss_handelseff
     denominator = (omzet + andere_bedrijfsopbr
@@ -514,25 +539,16 @@ def days_sales_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
     else:
         dso = round(numerator/denominator * 365)
 
-    financial_data['DSO'] = dso
-    return financial_data
+    temp_dict['DSO'] = dso
+    return temp_dict
 
-def days_payables_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
+def days_payables_outstanding(temp_dict: dict) -> dict:
     '''
     '''
-    handelsschulden = financial_data[
-        'Handelsschulden (44)'
-        ]
-    aankopen = financial_data[
-        'Aankopen (600/8)'
-        ]
-    diensten_diverse = financial_data[
-        'Diensten en diverse goederen (61)'
-        ]
-    btw_aan_vennootschap = financial_data[
-        'In rekening gebrachte belasting op de toegevoegde waarde '
-        '- aan vennootschap (9145)'
-        ]
+    handelsschulden = temp_dict.get('44', 0)
+    aankopen = temp_dict.get('600/8', 0)
+    diensten_diverse = temp_dict.get('61', 0)
+    btw_aan_vennootschap = temp_dict.get('9145', 0)
     
     numerator = handelsschulden
     denominator = aankopen + diensten_diverse + btw_aan_vennootschap
@@ -542,59 +558,33 @@ def days_payables_outstanding(financial_data: pd.DataFrame) -> pd.DataFrame:
     else:
         dpo = round(numerator/denominator * 365)
     
-    financial_data['DPO'] = dpo
-    return financial_data
+    temp_dict['DPO'] = dpo
+    return temp_dict
 
-def inventory_cycle_finished(financial_data: pd.DataFrame) -> pd.DataFrame:
+def inventory_cycle_finished(temp_dict: dict) -> dict:
     '''
     '''
+    if not _period_check(temp_dict):
+        return temp_dict
+    
     # Numerator
     bedrijfskosten = (
-        financial_data['Handelsgoederen, grond- en hulpstoffen (60)']
-        + financial_data['Diensten en diverse goederen (61)'] 
-        + financial_data['Bezoldigingen, sociale lasten en pensioenen (62)'] 
-        + financial_data['Afschrijvingen en waardeverminderingen op '
-                         'oprichtingskosten, op immateriële en materiële vaste '
-                         'activa (630)'] 
-        + financial_data['Waardeverminderingen op voorraden, op bestellingen in'
-                         ' uitvoering en op handelsvorderingen: toevoegingen '
-                         '(terugnemingen) (631/4)'] 
-        + financial_data["Voorzieningen voor risico's en kosten: toevoegingen "
-                         "(bestedingen en terugnemingen) (635/8)"] 
-        + financial_data['Andere bedrijfskosten (640/8)'] 
-        + financial_data['Als herstructureringskosten geactiveerde '
-                         'bedrijfskosten (649)']
+        temp_dict.get('60', 0) + temp_dict.get('61', 0)
+        + temp_dict.get('62', 0) + temp_dict.get('630', 0)
+        + temp_dict.get('631/4', 0) + temp_dict.get('635/80', 0)
+        + temp_dict.get('640/8', 0) + temp_dict.get('649',0)
     )
 
+    wijziging_voorraad = temp_dict.get('71', 0)
+    geprod_vaste_act = temp_dict.get('72', 0)
+    exploit_subs = temp_dict.get('740', 0)
+    overheid_kapsub = temp_dict.get('9125', 0)
+
     # Denominator
-    wijziging_voorraad = financial_data[
-        'Voorraad goederen in bewerking en gereed product en bestellingen in '
-        'uitvoering: toename (afname) (71)'
-        ]
-    geprod_vaste_act = financial_data[  
-        'Geproduceerde vaste activa (72)'
-        ]
-    exploit_subs = financial_data[
-        'Andere - exploitatiesubsidies en vanwege de overheid ontvangen '
-        'compenserende bedragen (740)'
-        ]
-    overheid_kapsub = financial_data[
-        'Door de overheid toegekende subsidies, aangerekend op de '
-        'resultatenrekening: Kapitaalsubsidies (9125)'
-        ]
-    goed_bewerking = financial_data[
-        'Goederen in bewerking (32)'
-        ]
-    gereed_product = financial_data[
-        'Gereed product (33)'
-        ]
-    onroerend_verkoop = financial_data[
-        'Onroerende goederen bestemd voor verkoop (35)'
-        ]
-    best_in_uitvoering = financial_data[
-        'Bestellingen in uitvoering (37)'
-        ]
-    
+    goed_bewerking = temp_dict.get('32', 0)
+    gereed_product = temp_dict.get('33', 0)
+    onroerend_verkoop = temp_dict.get('35', 0)
+    best_in_uitvoering = temp_dict.get('37', 0)
     
     numerator = (bedrijfskosten - wijziging_voorraad - geprod_vaste_act
                  - exploit_subs - overheid_kapsub)
@@ -602,43 +592,36 @@ def inventory_cycle_finished(financial_data: pd.DataFrame) -> pd.DataFrame:
                    + onroerend_verkoop + best_in_uitvoering)
     
     if denominator == 0:
-        doi = int(0)
+        dio = int(0)
     else:
-        doi = round(numerator/denominator)
+        dio = round(numerator/denominator)
 
-    financial_data['DIO_finished'] = doi
-    return financial_data
+    temp_dict['DIO_finished'] = dio
+    return temp_dict
 
-def inventory_cycle_crude(financial_data: pd.DataFrame) -> pd.DataFrame:
+def inventory_cycle_crude(temp_dict: dict) -> dict:
     '''
     '''
-    handelsgoederen_toename = financial_data[
-        'Handelsgoederen, grond- en hulpstoffen (60)'
-        ]
-    grondstoffen = financial_data[
-        'Grond- en hulpstoffen (30/31)'
-        ]   
-    handelsgoederen = financial_data[
-        'Handelsgoederen (34)'
-        ]
-    onroerend_verkoop = financial_data[
-        'Onroerende goederen bestemd voor verkoop (35)'
-        ]
-    vooruitbetalingen = financial_data[
-        'Vooruitbetalingen (36)'
-        ]
+    if not _period_check(temp_dict):
+        return temp_dict
     
+    handelsgoederen_toename = temp_dict.get('60', 0)
+    grondstoffen = temp_dict.get('30/31', 0)   
+    handelsgoederen = temp_dict.get('34', 0)
+    onroerend_verkoop = temp_dict.get('35', 0)
+    vooruitbetalingen = temp_dict.get('36', 0)
+
     numerator = handelsgoederen_toename
     denominator = (grondstoffen + handelsgoederen 
                    + onroerend_verkoop + vooruitbetalingen)
     
     if denominator == 0:
-        doi = int(0)
+        dio = int(0)
     else:
-        doi = round(numerator/denominator)
+        dio = round(numerator/denominator)
 
-    financial_data['DIO_crude'] = doi
-    return financial_data
+    temp_dict['DIO_crude'] = dio
+    return temp_dict
 
 def ccc(financial_data: pd.DataFrame) -> pd.DataFrame:
     """
@@ -704,16 +687,3 @@ def ebit_da(financial_data: pd.DataFrame, calc='ebit') -> pd.DataFrame:
         financial_data['ebitda'] = ebitda
         return financial_data
     
-def excel_export(company_dict, filename, period='N'):
-    """
-    Export to excel. Filename has to provide path.
-    """
-    df = fetch_fin_data(company_dict, period)
-    df1, df2, df3, df4, failed = fetch_quantative_data(company_dict)
-    with pd.ExcelWriter(filename) as writer:
-        df1.to_excel(writer, sheet_name='Company Info')
-        df.to_excel(writer, sheet_name='Fin. Data')
-        df2.to_excel(writer, sheet_name='Admin Data')
-        df3.to_excel(writer, sheet_name='Part. Interest')
-        df4.to_excel(writer, sheet_name='Shareholders')
-    print(failed)
