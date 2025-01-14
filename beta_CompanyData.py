@@ -20,7 +20,7 @@ Data that can be retrieved:
     - Financial Data.
     - Administrator Data, if provided.
     - Participating Interests, if provided.
-    - Shaerholders, if provided.
+    - Shareholders, if provided.
 """
 
 import uuid
@@ -443,7 +443,7 @@ class Filing:
         else:
             return self.dictionary[nested].get(key)
     
-    def fetch_fin_data(self, period='N'):
+    def fetch_fin_data(self, period='N', metrics=True):
 
         df = pd.DataFrame()
 
@@ -459,6 +459,13 @@ class Filing:
             for item in self.dictionary['Rubrics']:
                 if item['Period']==symbol:
                     temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))
+            
+            if metrics:
+                self.days_sales_outstanding(temp_dict)
+                self.days_payables_outstanding(temp_dict)
+                self.inventory_cycle_crude(temp_dict)
+                self.inventory_cycle_finished(temp_dict)
+                self.margin(temp_dict)
 
             df = pd.concat([
                 df, 
@@ -485,15 +492,26 @@ class Filing:
         else:
             return False
 
-
-
-
 ############################# Under review ####################################
+    def check_appearance(self, code, to_check):
+        """Check string for appearance in list"""
+        check = [fnmatch.fnmatchcase(code, i) for i in to_check]
+        if sum(check) != 0:
+            return True
+        else:
+            return False
+        
+    def full_schema_check(self, modeltype):
+        if modeltype in ['m02-f', 'm82-f']:
+            return True
+        else:
+            return False
 
     def days_sales_outstanding(self, temp_dict: dict) -> dict:
         '''
         '''
         if not self._period_check(temp_dict):
+            temp_dict['DSO'] = 'Not 365 days'
             return temp_dict
         
         # numerator
@@ -525,6 +543,10 @@ class Filing:
     def days_payables_outstanding(self, temp_dict: dict) -> dict:
         '''
         '''
+        if not self._period_check(temp_dict):
+            temp_dict['DPO'] = 'Not 365 days'
+            return temp_dict
+        
         handelsschulden = temp_dict.get('44', 0)
         aankopen = temp_dict.get('600/8', 0)
         diensten_diverse = temp_dict.get('61', 0)
@@ -545,7 +567,15 @@ class Filing:
         '''
         '''
         if not self._period_check(temp_dict):
+            temp_dict['DIO_finished'] = 'Not 365 days'
             return temp_dict
+        
+        if not self.modelType in ['m02-f', 'm82-f']:
+            temp_dict['DIO_finished'] = 'Not available for Abbr. or Micro model'
+            return temp_dict
+        
+        construction = self.check_appearance(self.activityCode,
+                                           ['41*', '42*','43*'])
         
         # Numerator
         bedrijfskosten = (
@@ -563,7 +593,10 @@ class Filing:
         # Denominator
         goed_bewerking = temp_dict.get('32', 0)
         gereed_product = temp_dict.get('33', 0)
-        onroerend_verkoop = temp_dict.get('35', 0)
+        if construction:
+            onroerend_verkoop = temp_dict.get('35', 0)
+        else:
+            onroerend_verkoop = 0
         best_in_uitvoering = temp_dict.get('37', 0)
         
         numerator = (bedrijfskosten - wijziging_voorraad - geprod_vaste_act
@@ -583,12 +616,23 @@ class Filing:
         '''
         '''
         if not self._period_check(temp_dict):
+            temp_dict['DIO_crude'] = 'Not 365 days'
             return temp_dict
+        
+        if not self.modelType in ['m02-f', 'm82-f']:
+            temp_dict['DIO_crude'] = 'Not available for Abbr. or Micro model'
+            return temp_dict
+        
+        construction = self.check_appearance(self.activityCode,
+                                           ['41*', '42*','43*'])
         
         handelsgoederen_toename = temp_dict.get('60', 0)
         grondstoffen = temp_dict.get('30/31', 0)   
         handelsgoederen = temp_dict.get('34', 0)
-        onroerend_verkoop = temp_dict.get('35', 0)
+        if construction:
+            onroerend_verkoop = 0
+        else:
+            onroerend_verkoop = temp_dict.get('35', 0)
         vooruitbetalingen = temp_dict.get('36', 0)
 
         numerator = handelsgoederen_toename
@@ -603,69 +647,57 @@ class Filing:
         temp_dict['DIO_crude'] = dio
         return temp_dict
 
-    def ccc(self, financial_data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Returns ccc.
-        """
-        dso = self.days_sales_outstanding(financial_data)
-        dpo = self.days_payables_outstanding(financial_data)
-        dio_crude = self.inventory_cycle_crude(financial_data)
-        dio_finished = self.inventory_cycle_finished(financial_data)
-        ccc = dso + (dio_crude + dio_finished) - dpo
-        financial_data['ccc'] = ccc
-        return financial_data
-
-    def ebit_da(self, financial_data: pd.DataFrame, calc='ebit') -> pd.DataFrame:
-        winst_verlies = financial_data[
-            'Winst (Verlies) van het boekjaar vóór belasting (9903)'
-        ]
-        opbr_fin_activa = financial_data[
-            'Opbrengsten uit financiële vaste activa (750)'
-        ]
-        opbr_vlot_activa = financial_data[
-            'Opbrengsten uit vlottende activa (751)'
-        ]
-        andere_fin_opbr = financial_data[
-            'Andere financiële opbrengsten (752/9)'
-        ]
-        kosten_schulden = financial_data[
-            'Kosten van schulden (650)'
-        ]
-        andere_fin_kosten = financial_data[
-            'Andere financiële kosten (652/9)'
-        ]
-        andere_niet_rec_fin_opbr = financial_data[
-            'Niet-recurrente financiële opbrengsten (76B)'
-        ]
-        andere_niet_rec_fin_kosten = financial_data[
-            'Niet-recurrente financiële kosten (66B)'
-        ]
-
-        ebit = (winst_verlies - opbr_fin_activa - opbr_vlot_activa 
-                - andere_fin_opbr + kosten_schulden + andere_fin_kosten 
-                - andere_niet_rec_fin_opbr + andere_niet_rec_fin_kosten
-        )
-        if calc == 'ebit':
-            financial_data['ebit'] = ebit
-            return financial_data
+    def margin(self, temp_dict: dict) -> dict:
+        """Calculate gross margin"""
+        revenue = temp_dict.get('70', 0)
+        if int(revenue) == 0:
+            temp_dict['Margin'] = 'No revenue given'
+            return temp_dict
         
-        da_fixed_activa = financial_data[
-            'Afschrijvingen en waardeverminderingen op oprichtingskosten, op '
-            'immateriële en materiële vaste activa (630)'
-        ]
-        da_inventory = financial_data[
-            'Waardeverminderingen op voorraden, op bestellingen in uitvoering en '
-            'op handelsvorderingen: toevoegingen (terugnemingen) (631/4)'
-        ]
-        da_cur_act_non_inv_non_so = financial_data[
-            'Waardeverminderingen op vlottende activa andere dan voorraden, '
-            'bestellingen in uitvoering en handelsvorderingen: toevoegingen '
-            '(terugnemingen) (651)'
-        ]
-        ebitda = ebit + da_fixed_activa + da_inventory + da_cur_act_non_inv_non_so
-        if calc == 'ebitda':
-            financial_data['ebitda'] = ebitda
-            return financial_data
+        profit = (temp_dict.get('9901', 0)
+                  - temp_dict.get('76A', 0)
+                  + temp_dict.get('66A', 0))
+        da = (temp_dict.get('630')
+              + temp_dict.get('631/4')
+              + temp_dict.get('635/8'))
+        other_rev = temp_dict.get('74', 0)
+        code740 = temp_dict.get('740', 0)
+        code9125 = temp_dict.get('9125', 0)
+
+        denominator = revenue + other_rev + code740
+        temp_dict['Gross Margin'] = ((profit + da)*100/denominator)
+        temp_dict['Net Margin'] = ((profit + code9125)*100/denominator)
+        return temp_dict
+        
+    def addedValue_ratio(self, temp_dict: dict) -> dict:
+        if self.full_schema_check(self.modelType):
+            nominator = (temp_dict.get('70', 0) + temp_dict.get('71', 0)
+                         + temp_dict.get('72', 0) + temp_dict.get('74', 0))
+
+    # def ebit_da(self, temp_dict: dict) -> pd.DataFrame:
+    #     """Calculate EBIT/DA"""
+    #     winst_verlies = temp_dict.get('9903', 0)
+    #     opbr_fin_activa = temp_dict.get('750', 0)
+    #     opbr_vlot_activa = temp_dict.get('751', 0)
+    #     andere_fin_opbr = temp_dict.get('752/9', 0)
+    #     kosten_schulden = temp_dict.get('650', 0)
+    #     andere_fin_kosten = temp_dict.get('652/9', 0)
+    #     andere_niet_rec_fin_opbr = temp_dict.get('76B', 0)
+    #     andere_niet_rec_fin_kosten = temp_dict.get('66B', 0)
+        
+    #     da_fixed_activa = temp_dict.get('630', 0)
+    #     da_inventory = temp_dict.get('631/4', 0)
+    #     da_cur_act_non_inv_non_so = temp_dict.get('651', 0)
+
+    #     ebit = (winst_verlies - opbr_fin_activa - opbr_vlot_activa 
+    #             - andere_fin_opbr + kosten_schulden + andere_fin_kosten 
+    #             - andere_niet_rec_fin_opbr + andere_niet_rec_fin_kosten)
+        
+    #     ebitda = ebit + da_fixed_activa + da_inventory + da_cur_act_non_inv_non_so
+
+    #     temp_dict['ebit'] = ebit
+    #     temp_dict['ebitda'] = ebitda
+    #     return temp_dict
 
 # def excel_export(company_dict, filename, period='N'):
 #     """
