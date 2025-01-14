@@ -1,17 +1,3 @@
-qualitative_data_dictionary = {
-    'Legal Name':'Entity name',
-    'Legal Form':'Legal form',
-    'Country':'Entity country',
-    'City':'Entity city',
-    'Postal code':'Entity postal code',
-    'Street':'Entity address street',
-    'ID':'Entity number',
-    'Taal':'Language',
-    'Start':'Accounting period start date',
-    'End':'Accounting period end date',
-    'Approval':'General assembly date'      
-    }
-
 bookcodes_dictionary = {
     # VASTE ACTIVA
     'OPRICHTINGSKOSTEN (20)':'20',
@@ -623,20 +609,6 @@ bookcodes_dictionary = {
     'Uitzendkrachten -  Kosten voor de vennootschap (1521)':'1521',
     }
 
-csv_qual_dict = {
-    'Legal Name':'Entity name',
-    'Legal Form':'Legal form',
-    'Country':'Entity country',
-    'City':'Entity city',
-    'Postal code':'Entity postal code',
-    'Street':'Entity address street',
-    'ID':'Entity number',
-    'Taal':'Language',
-    'Start':'Accounting period start date',
-    'End':'Accounting period end date',
-    'Approval':'General assembly date',
-    }
-
 reversed_dict = {
     "20":"OPRICHTINGSKOSTEN (20)",
     "21/28":"VASTE ACTIVA (21/28)",
@@ -1069,4 +1041,30 @@ reversed_dict = {
     "1501":"Uitzendkrachten -  Gemiddeld aantal tewerkgestelde personen (1501)",
     "1511":"Uitzendkrachten -  Aantal daadwerkelijk gepresteerde uren (1511)",
     "1521":"Uitzendkrachten -  Kosten voor de vennootschap (1521)",
+}
+
+modelType_dict = {
+    "Full scheme company with capital": "m02-f",
+    "Full scheme company with capital (annual accounts)": "m02-a",
+    "Full scheme company with capital (other documents)": "m02-o",
+    "Full scheme company without capital": "m82-f",
+    "Full scheme company without capital (annual accounts)": "m82-a",
+    "Full scheme company without capital (other documents)": "m82-o",
+    "Abbreviated scheme company with capital": "m01-f",
+    "Abbreviated scheme company with capital (annual accounts)": "m01-a",
+    "Abbreviated scheme company with capital (other documents)": "m01-o",
+    "Abbreviated scheme company without capital": "m81-f",
+    "Abbreviated scheme company without capital (annual accounts)": "m81-a",
+    "Abbreviated scheme company without capital (other documents)": "m81-o",
+    "Micro scheme company with capital": "m07-f",
+    "Micro scheme company with capital (annual accounts)": "m07-a",
+    "Micro scheme company with capital (other documents)": "m07-o",
+    "Micro scheme company without capital": "m87-f",
+    "Micro scheme company without capital (annual accounts)": "m87-a",
+    "Micro scheme company without capital (other documents)": "m87-o",
+    "Full scheme association and foundation": "m05-f",
+    "Abbreviated scheme association and foundation": "m04-f",
+    "Micro scheme association and foundation": "m08-f",
+    "Contacts within the enterprise": "m100-r",
+    "Application producer": "m101-r",
 }
