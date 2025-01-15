@@ -476,9 +476,7 @@ def fetch_fin_data(company_dict: dict, period='N'):
             
             for item in v['Rubrics']:
                 if item['Period']==symbol:
-                    temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))
-
-            inventory_cycle_crude(temp_dict) 
+                    temp_dict[item.get('Code','0')]=float(item.get('Value', '0')) 
 
             df = pd.concat([
                 df, 
