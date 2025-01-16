@@ -493,7 +493,7 @@ class Filing:
             return False
 
 ############################# Under review ####################################
-    def check_appearance(self, code, to_check):
+    def _check_appearance(self, code, to_check):
         """Check string for appearance in list"""
         check = [fnmatch.fnmatchcase(code, i) for i in to_check]
         if sum(check) != 0:
@@ -501,7 +501,7 @@ class Filing:
         else:
             return False
         
-    def full_schema_check(self, modeltype):
+    def _full_schema_check(self, modeltype):
         if modeltype in ['m02-f', 'm82-f']:
             return True
         else:
@@ -574,7 +574,7 @@ class Filing:
             temp_dict['DIO_finished'] = 'Not available for Abbr. or Micro model'
             return temp_dict
         
-        construction = self.check_appearance(self.activityCode,
+        construction = self._check_appearance(self.activityCode,
                                            ['41*', '42*','43*'])
         
         # Numerator
@@ -623,7 +623,7 @@ class Filing:
             temp_dict['DIO_crude'] = 'Not available for Abbr. or Micro model'
             return temp_dict
         
-        construction = self.check_appearance(self.activityCode,
+        construction = self._check_appearance(self.activityCode,
                                            ['41*', '42*','43*'])
         
         handelsgoederen_toename = temp_dict.get('60', 0)
@@ -670,7 +670,7 @@ class Filing:
         return temp_dict
         
     def addedValue_ratio(self, temp_dict: dict) -> dict:
-        if self.full_schema_check(self.modelType):
+        if self._full_schema_check(self.modelType):
             nominator = (temp_dict.get('70', 0) + temp_dict.get('71', 0)
                          + temp_dict.get('72', 0) + temp_dict.get('74', 0))
 
