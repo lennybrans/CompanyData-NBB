@@ -220,6 +220,7 @@ class CompanyData:
             pass # If 404 error, alternative way?
         return data_dictionary
 
+    # Fetch quantative data functions below
     def _fetch_address(self, address_dict: dict) -> str:
         """
         Return string.
@@ -373,7 +374,7 @@ class CompanyData:
         """
         Return four DataFrames and failed list.
         """
-        last_filing = self.data[self.last_reference]
+        last_filing = self.data[self.last_reference].dictionary
         failed = []
         
         try:
@@ -416,71 +417,8 @@ class CompanyData:
    
         # return write to excel? add parameter
         return company_df, admin_df, pi_df, shareholders_df, failed
-
-class Filing:
-    """Represent an individual filing."""
-    def __init__(self, response_dictionary):
-        """Initialise atrributes."""
-        self.dictionary = response_dictionary
-        self.enterpriseName = self.dictionary['EnterpriseName']
-        self.filing_reference = self._extract(key='ReferenceNumber')
-        self.startDate = self._extract(
-            key='ExerciseDates.startDate', nested='Additional Info')
-        self.endDate = self._extract(
-            key='ExerciseDates.endDate', nested='Additional Info')
-        self.modelType = self._extract(
-            key='ModelType', nested='Additional Info')
-        self.activityCode = self._extract(
-            key='ActivityCode', nested='Additional Info')
-        self.legalForm = self._extract(
-            key='LegalForm', nested='Additional Info')
-        self.depositType = self._extract(
-            key='DepositType', nested='Additional Info')
-
-    def _extract(self, key, nested=False):
-        if not nested:
-            return self.dictionary[key]
-        else:
-            return self.dictionary[nested].get(key)
     
-    def fetch_fin_data(self, period='N', metrics=True):
-
-        df = pd.DataFrame()
-
-        for symbol in period:
-            temp_dict = {
-                'Symbol': symbol,
-                'ReferenceNumber': self.filing_reference,
-                'EnterpriseName': self.enterpriseName,
-                'StartDate': self.startDate,
-                'EndDate': self.endDate,
-                }
-                
-            for item in self.dictionary['Rubrics']:
-                if item['Period']==symbol:
-                    temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))
-            
-            if metrics:
-                self.days_sales_outstanding(temp_dict)
-                self.days_payables_outstanding(temp_dict)
-                self.inventory_cycle_crude(temp_dict)
-                self.inventory_cycle_finished(temp_dict)
-                self.margin(temp_dict)
-
-            df = pd.concat([
-                df, 
-                pd.DataFrame(data=temp_dict, 
-                            index=[0])
-                            ], ignore_index=True, sort=False)
-        
-        df.rename(mapper=dct.reversed_dict, axis=1, inplace=True)
-        df.sort_values(['StartDate', 'Symbol'], 
-                    ascending=[False, True],
-                    inplace=True)
-        df.set_index('ReferenceNumber', drop=True, inplace=True)
-        df.fillna(0, inplace=True)
-        return df
-
+    # Fetch fin data functions below
     def _period_check(self, temp_dict: dict):
         begin = datetime.strptime(temp_dict.get('StartDate')\
                                 .replace('-','/'), "%Y/%m/%d")
@@ -492,7 +430,6 @@ class Filing:
         else:
             return False
 
-############################# Under review ####################################
     def _check_appearance(self, code, to_check):
         """Check string for appearance in list"""
         check = [fnmatch.fnmatchcase(code, i) for i in to_check]
@@ -507,7 +444,7 @@ class Filing:
         else:
             return False
 
-    def days_sales_outstanding(self, temp_dict: dict) -> dict:
+    def _days_sales_outstanding(self, temp_dict, metrics_dict) -> dict:
         '''
         '''
         if not self._period_check(temp_dict):
@@ -537,10 +474,10 @@ class Filing:
         else:
             dso = round(numerator/denominator * 365)
 
-        temp_dict['DSO'] = dso
-        return temp_dict
+        metrics_dict['DSO'] = dso
+        return metrics_dict
 
-    def days_payables_outstanding(self, temp_dict: dict) -> dict:
+    def _days_payables_outstanding(self, temp_dict, metrics_dict) -> dict:
         '''
         '''
         if not self._period_check(temp_dict):
@@ -560,21 +497,22 @@ class Filing:
         else:
             dpo = round(numerator/denominator * 365)
         
-        temp_dict['DPO'] = dpo
-        return temp_dict
+        metrics_dict['DPO'] = dpo
+        return metrics_dict
 
-    def inventory_cycle_finished(self, temp_dict: dict) -> dict:
+    def _inventory_cycle_finished(self, temp_dict, 
+                                  metrics_dict, filing_object) -> dict:
         '''
         '''
         if not self._period_check(temp_dict):
             temp_dict['DIO_finished'] = 'Not 365 days'
             return temp_dict
         
-        if not self.modelType in ['m02-f', 'm82-f']:
+        if not filing_object.modelType in ['m02-f', 'm82-f']:
             temp_dict['DIO_finished'] = 'Not available for Abbr. or Micro model'
             return temp_dict
         
-        construction = self._check_appearance(self.activityCode,
+        construction = self._check_appearance(filing_object.activityCode,
                                            ['41*', '42*','43*'])
         
         # Numerator
@@ -609,21 +547,22 @@ class Filing:
         else:
             dio = round(numerator/denominator)
 
-        temp_dict['DIO_finished'] = dio
-        return temp_dict
+        metrics_dict['DIO_finished'] = dio
+        return metrics_dict
 
-    def inventory_cycle_crude(self, temp_dict: dict) -> dict:
+    def _inventory_cycle_crude(self, temp_dict, 
+                               metrics_dict, filing_object) -> dict:
         '''
         '''
         if not self._period_check(temp_dict):
             temp_dict['DIO_crude'] = 'Not 365 days'
             return temp_dict
         
-        if not self.modelType in ['m02-f', 'm82-f']:
+        if not filing_object.modelType in ['m02-f', 'm82-f']:
             temp_dict['DIO_crude'] = 'Not available for Abbr. or Micro model'
             return temp_dict
         
-        construction = self._check_appearance(self.activityCode,
+        construction = self._check_appearance(filing_object.activityCode,
                                            ['41*', '42*','43*'])
         
         handelsgoederen_toename = temp_dict.get('60', 0)
@@ -644,11 +583,11 @@ class Filing:
         else:
             dio = round(numerator/denominator)
 
-        temp_dict['DIO_crude'] = dio
-        return temp_dict
+        metrics_dict['DIO_crude'] = dio
+        return metrics_dict
 
-    def margin(self, temp_dict: dict) -> dict:
-        """Calculate gross margin"""
+    def _margin(self, temp_dict, metrics_dict) -> dict:
+        """Calculate gross _margin"""
         revenue = temp_dict.get('70', 0)
         if int(revenue) == 0:
             temp_dict['Margin'] = 'No revenue given'
@@ -657,18 +596,140 @@ class Filing:
         profit = (temp_dict.get('9901', 0)
                   - temp_dict.get('76A', 0)
                   + temp_dict.get('66A', 0))
-        da = (temp_dict.get('630')
-              + temp_dict.get('631/4')
-              + temp_dict.get('635/8'))
+        da = (temp_dict.get('630', 0)
+              + temp_dict.get('631/4', 0)
+              + temp_dict.get('635/8', 0))
         other_rev = temp_dict.get('74', 0)
         code740 = temp_dict.get('740', 0)
         code9125 = temp_dict.get('9125', 0)
 
         denominator = revenue + other_rev + code740
-        temp_dict['Gross Margin'] = ((profit + da)*100/denominator)
-        temp_dict['Net Margin'] = ((profit + code9125)*100/denominator)
-        return temp_dict
+        metrics_dict['Gross Margin'] = ((profit + da)*100/denominator)
+        metrics_dict['Net Margin'] = ((profit + code9125)*100/denominator)
+        return metrics_dict
+
+    def fetch_fin_data(self, period=['N', 'NM1'], metrics=True):
+        """Return DataFrame with all requested financial information."""
+
+        df = pd.DataFrame()
+        df_metrics = pd.DataFrame()
+
+        for symbol in period:
+            for class_ in self.data.values():
+                temp_dict = {
+                    'Symbol': symbol,
+                    'ReferenceNumber': class_.filing_reference,
+                    'EnterpriseName': self.enterpriseName,
+                    'StartDate': class_.startDate,
+                    'EndDate': class_.endDate,
+                    }
+                
+                metrics_dict = temp_dict.copy()
+                    
+                for item in class_.dictionary['Rubrics']:
+                    if item['Period']==symbol:
+                        temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))
+            
+                if metrics:
+                    self._days_sales_outstanding(temp_dict, metrics_dict)
+                    self._days_payables_outstanding(temp_dict, metrics_dict)
+                    self._inventory_cycle_crude(temp_dict, metrics_dict, class_)
+                    self._inventory_cycle_finished(temp_dict, metrics_dict, class_)
+                    self._margin(temp_dict, metrics_dict)
+
+                df = pd.concat([
+                    df, 
+                    pd.DataFrame(data=temp_dict, 
+                                index=[0])
+                ], ignore_index=True, sort=False)
+                
+                df_metrics = pd.concat([
+                    df_metrics,
+                    pd.DataFrame(data=metrics_dict,
+                                 index=[0])
+                ], ignore_index=True, sort=False)
+            
+        df.rename(mapper=dct.reversed_dict, axis=1, inplace=True)
+        df.fillna(0, inplace=True)
         
+        df.sort_values(['StartDate', 'Symbol'], 
+                    ascending=[False, True],
+                    inplace=True)
+        df.set_index('ReferenceNumber', drop=True, inplace=True)
+
+        df_metrics.sort_values(['StartDate', 'Symbol'], 
+                    ascending=[False, True],
+                    inplace=True)
+        df_metrics.set_index('ReferenceNumber', drop=True, inplace=True)
+        return df, df_metrics
+
+class Filing:
+    """Represent an individual filing."""
+    def __init__(self, response_dictionary):
+        """Initialise atrributes."""
+        self.dictionary = response_dictionary
+        self.enterpriseName = self.dictionary['EnterpriseName']
+        self.filing_reference = self._extract(key='ReferenceNumber')
+        self.startDate = self._extract(
+            key='ExerciseDates.startDate', nested='Additional Info')
+        self.endDate = self._extract(
+            key='ExerciseDates.endDate', nested='Additional Info')
+        self.modelType = self._extract(
+            key='ModelType', nested='Additional Info')
+        self.activityCode = self._extract(
+            key='ActivityCode', nested='Additional Info')
+        self.legalForm = self._extract(
+            key='LegalForm', nested='Additional Info')
+        self.depositType = self._extract(
+            key='DepositType', nested='Additional Info')
+
+    def _extract(self, key, nested=False):
+        if not nested:
+            return self.dictionary[key]
+        else:
+            return self.dictionary[nested].get(key)
+    
+    # def fetch_fin_data(self, period='N', metrics=True):
+
+    #     df = pd.DataFrame()
+
+    #     for symbol in period:
+    #         temp_dict = {
+    #             'Symbol': symbol,
+    #             'ReferenceNumber': self.filing_reference,
+    #             'EnterpriseName': self.enterpriseName,
+    #             'StartDate': self.startDate,
+    #             'EndDate': self.endDate,
+    #             }
+                
+    #         for item in self.dictionary['Rubrics']:
+    #             if item['Period']==symbol:
+    #                 temp_dict[item.get('Code','0')]=float(item.get('Value', '0'))
+            
+    #         if metrics:
+    #             self._days_sales_outstanding(temp_dict)
+    #             self._days_payables_outstanding(temp_dict)
+    #             self._inventory_cycle_crude(temp_dict)
+    #             self._inventory_cycle_finished(temp_dict)
+    #             self._margin(temp_dict)
+
+    #         df = pd.concat([
+    #             df, 
+    #             pd.DataFrame(data=temp_dict, 
+    #                         index=[0])
+    #                         ], ignore_index=True, sort=False)
+        
+    #     df.rename(mapper=dct.reversed_dict, axis=1, inplace=True)
+    #     df.sort_values(['StartDate', 'Symbol'], 
+    #                 ascending=[False, True],
+    #                 inplace=True)
+    #     df.set_index('ReferenceNumber', drop=True, inplace=True)
+    #     df.fillna(0, inplace=True)
+    #     return df
+
+
+
+############################# Under review ####################################    
     def addedValue_ratio(self, temp_dict: dict) -> dict:
         if self._full_schema_check(self.modelType):
             nominator = (temp_dict.get('70', 0) + temp_dict.get('71', 0)
